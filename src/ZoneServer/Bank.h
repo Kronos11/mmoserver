@@ -34,7 +34,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 class PlayerObject;
 
 
-typedef std::vector<std::pair<string,uint64> >	SortedBankItemList;
+typedef std::vector<std::pair<BString,uint64> >	SortedBankItemList;
 //=============================================================================
 
 class Bank : public TangibleObject
@@ -54,7 +54,6 @@ class Bank : public TangibleObject
 		bool		updateCredits(int32 amount);
 
 		virtual bool	checkCapacity(uint8 amount, PlayerObject* player = NULL, bool sendMsg = true);
-		virtual void	UpdateWorldPosition();
 
 		int8		getPlanet(){ return mPlanet; }
 		void		setPlanet(int8 planet){ mPlanet = planet; }

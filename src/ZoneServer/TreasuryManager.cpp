@@ -260,7 +260,7 @@ void TreasuryManager::bankOpenSafetyDepositContainer(PlayerObject* playerObject)
 			// check if the player is really binded to this bank
 			if(static_cast<uint32>(bank->getPlanet()) != gWorldManager->getZoneId())
 			{
-				gMessageLib->sendSystemMessage(playerObject, L"You are not a member of this bank.");
+				gMessageLib->SendSystemMessage(L"You are not a member of this bank.", playerObject);
 				return;
 			}
 			
@@ -286,7 +286,7 @@ void TreasuryManager::bankQuit(PlayerObject* playerObject)
 	if(Bank* bank = dynamic_cast<Bank*>(playerObject->getEquipManager()->getEquippedObject(CreatureEquipSlot_Bank)))
 	{
 		// check if the player is really binded to this bank
-		if(static_cast<uint32>(bank->getPlanet()) != gWorldManager->getZoneId())
+		if(!(bank->getPlanet() < 0))
 		{
 			gMessageLib->SendSystemMessage(L"You are not a member of this bank.", playerObject);
 			return;
@@ -295,7 +295,7 @@ void TreasuryManager::bankQuit(PlayerObject* playerObject)
 		// check if the bank item box is empty
 		if(!bank->getObjects()->empty())
 		{
-			gMessageLib->sendSystemMessage(playerObject, L"", "system_msg","bank_not_empty");
+			gMessageLib->SendSystemMessage(::common::OutOfBand("system_msg","bank_not_empty"), playerObject);
 			return;
 		}
 
@@ -355,10 +355,6 @@ void TreasuryManager::saveAndUpdateBankCredits(PlayerObject* playerObject)
 {
 	mDatabase->DestroyResult(mDatabase->ExecuteSynchSql("UPDATE banks SET credits=%u WHERE id=%"PRIu64"",dynamic_cast<Bank*>(playerObject->getEquipManager()->getEquippedObject(CreatureEquipSlot_Bank))->getCredits(), playerObject->getId() + 4));
 	gMessageLib->sendBankCreditsUpdate(playerObject);
-}
-void TreasuryManager::saveAndUpdateBankItems(PlayerObject* playerObject)
-{
-	
 }
 
 //======================================================================================================================

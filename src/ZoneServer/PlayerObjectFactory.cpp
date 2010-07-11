@@ -645,10 +645,9 @@ PlayerObject* PlayerObjectFactory::_createPlayer(DatabaseResult* result)
 	playerBank->setTangibleType(TanType_Bank);
 	playerBank->setEquipSlotMask(CreatureEquipSlot_Bank);
 	playerBank->setCapacity(100);
+	gWorldManager->addObject(playerBank,false);
 	playerObject->mEquipManager.addEquippedObject(CreatureEquipSlot_Bank,playerBank);
-	gWorldManager->addObject(playerBank,true);
-
-	gWorldManager->addObject(playerBank,true);
+	
 
 	// weapon
 	playerWeapon->setId(playerObject->mId + WEAPON_OFFSET);

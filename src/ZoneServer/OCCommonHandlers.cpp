@@ -531,10 +531,11 @@ bool ObjectController::checkContainingContainer(uint64 containingContainer, uint
 			return false;
 	}
 	//handle bank
-	if(Bank* bank = dynamic_cast<Bank*>(object))
+	if(Bank* bank = dynamic_cast<Bank*>(mainObject))
 	{
-		if(static_cast<uint32>(bank->getPlanet()) != gWorldManager->getZoneId())
+		if(!(bank->getPlanet() < 0))
 		{
+			gMessageLib->SendSystemMessage(L"You are not a member of this bank.", playerObject);
 			return false;
 		}
 	}
