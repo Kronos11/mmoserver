@@ -51,11 +51,11 @@ void StructureManager::createNewFactorySchematicBox(PlayerObject* player, Factor
 {
 
 	
-	string wText = "Current schematic installed: ";
+	BString wText = "Current schematic installed: ";
 	
 	if(factory->getManSchemID())
 	{
-		string name = factory->getSchematicCustomName();
+		BString name = factory->getSchematicCustomName();
 		name.convert(BSTRType_ANSI);
 		wText << name.getAnsi();	
 		
@@ -77,7 +77,7 @@ void StructureManager::createNewFactorySchematicBox(PlayerObject* player, Factor
 
 	while(mListIt != mList->end())
 	{
-		string lText;
+		BString lText;
 
 		ManufacturingSchematic* man = (*mListIt);
 		if(!man)
@@ -97,7 +97,7 @@ void StructureManager::createNewFactorySchematicBox(PlayerObject* player, Factor
 
 		}
 		
-		string name = item->getCustomName();
+		BString name = item->getCustomName();
 
 		
 		//string name = factory->getSchematicCustomName();
@@ -135,8 +135,8 @@ void StructureManager::createNewStructureStatusBox(PlayerObject* player, PlayerS
 {
 	//player_structure structure_name_prompt
 
-	string wText = "Structure Name: ";
-	string name = structure->getCustomName();
+	BString wText = "Structure Name: ";
+	BString name = structure->getCustomName();
 	name.convert(BSTRType_ANSI);
 	wText << name.getAnsi();	
 	
@@ -252,7 +252,7 @@ void StructureManager::createNewStructureStatusBox(PlayerObject* player, PlayerS
 void StructureManager::createRenameStructureBox(PlayerObject* player, PlayerStructure* structure)
 {
 
-	string text = "Please enter the new name you would like for this object.";
+	BString text = "Please enter the new name you would like for this object.";
 	
 	int8 caption[32];
 	sprintf(caption,"NAME THE OBJECT");
@@ -262,7 +262,7 @@ void StructureManager::createRenameStructureBox(PlayerObject* player, PlayerStru
 
 	int8 sName[128];
 
-	string name = structure->getCustomName();			
+	BString name = structure->getCustomName();			
 	name.convert(BSTRType_ANSI);
 	sprintf(sName,"%s",name.getAnsi());
 	if(!name.getLength())
@@ -294,7 +294,7 @@ void StructureManager::createPowerTransferBox(PlayerObject* player, PlayerStruct
 	sprintf(caption,"SELECT AMOUNT");
 	int8 sName[128];
 
-	string name = structure->getCustomName();			
+	BString name = structure->getCustomName();			
 	name.convert(BSTRType_ANSI);
 	sprintf(sName,"%s",name.getAnsi());
 	if(!name.getLength())
@@ -323,7 +323,7 @@ void StructureManager::createPayMaintenanceTransferBox(PlayerObject* player, Pla
 	sprintf(caption,"SELECT AMOUNT");
 	int8 sName[128];
 
-	string name = structure->getCustomName();			
+	BString name = structure->getCustomName();			
 	name.convert(BSTRType_ANSI);
 	sprintf(sName,"%s",name.getAnsi());
 	if(!name.getLength())
@@ -332,9 +332,15 @@ void StructureManager::createPayMaintenanceTransferBox(PlayerObject* player, Pla
 		
 	}
 
-
+	
 	uint32 funds = dynamic_cast<Inventory*>(player->getEquipManager()->getEquippedObject(CreatureEquipSlot_Inventory))->getCredits();
-	funds += dynamic_cast<Bank*>(player->getEquipManager()->getEquippedObject(CreatureEquipSlot_Bank))->getCredits();
+	//safety checks to get to bank. crashbug: http://paste.swganh.org/viewp.php?id=20100627203548-c53f2480c978a48669f668890396560f
+	if(player->getEquipManager()->getEquippedObject(CreatureEquipSlot_Bank)){//we can access the bank
+		Bank* pBank = dynamic_cast<Bank*> (player->getEquipManager()->getEquippedObject(CreatureEquipSlot_Bank));
+		if(pBank){
+			funds += pBank->getCredits();
+		}
+	}
 
 	gUIManager->createNewTransferBox(structure,sName,caption,text,"Total Funds","To Pay",funds,structureFunds,player,SUI_Window_Pay_Maintenance);
 	
@@ -342,8 +348,14 @@ void StructureManager::createPayMaintenanceTransferBox(PlayerObject* player, Pla
 
 void StructureManager::createNewStructureDeleteConfirmBox(PlayerObject* player, PlayerStructure* structure)
 {
+	//we only want this window open once
+	if(player->checkUIWindow("handle Structure Destroy Confirmation"))
+	{
+		//gMessageLib->sendSystemMessage(player, L"You cannot open this window several times");
+		return;
+	}
 
-	string text = "Your structure";
+	BString text = "Your structure";
 	if(structure->getRedeed())
 	{
 		text <<"\\#"SOE_GREEN"WILL\\#FFFFFF ";
@@ -363,15 +375,22 @@ void StructureManager::createNewStructureDeleteConfirmBox(PlayerObject* player, 
 
 	BStringVector vector;
 
-	gUIManager->createNewInputBox(structure,"",caption,text.getAnsi(),vector,player,SUI_IB_NODROPDOWN_OKCANCEL,SUI_Window_Structure_Delete_Confirm,6);
+	gUIManager->createNewInputBox(structure,"handle Structure Destroy Confirmation",caption,text.getAnsi(),vector,player,SUI_IB_NODROPDOWN_OKCANCEL,SUI_Window_Structure_Delete_Confirm,6);
 	
 }
 
 void StructureManager::createNewStructureDestroyBox(PlayerObject* player, PlayerStructure* structure, bool redeed)
 {
+	//we only want this window open once
+	if(player->checkUIWindow("handle Structure Destroy")||player->checkUIWindow("handle Structure Destroy Confirmation"))
+	{
+		//gMessageLib->sendSystemMessage(player, L"You cannot open this window several times");
+		return;
+	}
+	
 	BStringVector attributesMenu;
 
-	string text = "You have elected to destroy a structure. Pertinent structure data can be found in the list below. Please complete the following steps to confirm structure deletion.\xa\xa";
+	BString text = "You have elected to destroy a structure. Pertinent structure data can be found in the list below. Please complete the following steps to confirm structure deletion.\xa\xa";
 			text <<"If you wish to redeed your structure, all structure data must be \\#"SOE_GREEN" GREEN\\#. To continue with structure deletion, click YES. Otherwise, please click NO.\xa";
 
 	if(structure->canRedeed())
@@ -426,7 +445,7 @@ void StructureManager::createNewStructureDestroyBox(PlayerObject* player, Player
 
 	int8 sName[128];
 
-	string name = structure->getCustomName();			
+	BString name = structure->getCustomName();			
 	name.convert(BSTRType_ANSI);
 	sprintf(sName,"%s",name.getAnsi());
 	if(!name.getLength())
@@ -438,6 +457,8 @@ void StructureManager::createNewStructureDestroyBox(PlayerObject* player, Player
 	//answer = x/(total/100);
 	//answer = x*(total/100);
 	// total = 100%
+
+	//make sure we can only have one structure destroybox open ...
 	
 	gUIManager->createNewListBox(structure,"handle Structure Destroy",sName, text.getAnsi(), attributesMenu, player, SUI_Window_Structure_Delete,SUI_LB_YESNO);
 }

@@ -55,9 +55,9 @@ void ObjectController::_handleHarvestCorpse(uint64 targetId,Message* message,Obj
 		return;
 
 	if(!target)
-		gMessageLib->sendSystemMessage(playerObject, L"", "internal_command_string","target_not_creature");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("internal_command_string", "target_not_creature"), playerObject);
 
-	string cmdString;
+	BString cmdString;
 	message->getStringAnsi(cmdString);
 
 	int8 rawData[128];
@@ -70,7 +70,7 @@ void ObjectController::_handleHarvestCorpse(uint64 targetId,Message* message,Obj
 	}
 	else if(elementCount == 1)
 	{
-		string data(rawData);
+		BString data(rawData);
 		data.toLower();
 		
 		if(data == "meat")
@@ -82,7 +82,7 @@ void ObjectController::_handleHarvestCorpse(uint64 targetId,Message* message,Obj
 	}
 	else
 	{
-		gMessageLib->sendSystemMessage(playerObject, L"", "internal_command_string","no_resource");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("internal_command_string", "no_resource"), playerObject);
 	}
 
 } 

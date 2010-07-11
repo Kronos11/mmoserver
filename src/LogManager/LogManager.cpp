@@ -31,6 +31,11 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include <stdio.h>
 #include <vector>
 
+#include <exception>
+#include <boost/thread/thread.hpp>
+#include <fstream>
+#include <iomanip>
+
 #include "Utils/clock.h"
 
 LogManager* LogManager::mSingleton;
@@ -45,52 +50,41 @@ public:
 	bool mContinuation;
 };
 
-LogManager::LogManager()
+LogManager::LogManager(LOG_PRIORITY console_priority, LOG_PRIORITY file_priority, std::string filename)
 {
-	_printLogo();
+	mMinPriorities[0] = console_priority;
+	mMinPriorities[1] = file_priority;
 
-	boost::thread t(std::tr1::bind(&LogManager::_LoggerThread, this));
-	mThread = boost::move(t);
-
-	//Set the Defaults to No Logs.
-	mMinPriorities[0] = 0;
-	mMinPriorities[1] = 0;
-	mMinPriorities[2] = 0;
-}
-
-bool LogManager::setupConsoleLogging(LOG_PRIORITY min_priority)
-{
-	mMinPriorities[0] = min_priority;
-	return true;
-}
-
-bool LogManager::setupFileLogging(LOG_PRIORITY min_priority, std::string filename)
-{
-	mMinPriorities[1] = min_priority;
-	mOutputFile = fopen(filename.c_str(), "w");
-
-	if(ferror(mOutputFile))
+	mFileName = filename;
+    
+    mOutputFile = std::unique_ptr<std::ofstream>(new std::ofstream(mFileName, std::ios_base::out));
+	if(!mOutputFile->is_open())
 	{
-		printf("Error dealing with the log file.");
-		mOutputFile = 0;
-		return false;
+		throw std::exception();
 	}
 
-	if(!mOutputFile)
-		return false;
+	_printLogo();
+    
+    mEntriesMutex = std::unique_ptr<boost::mutex>(new boost::mutex());
+	mThread = std::unique_ptr<boost::thread>(new boost::thread(std::tr1::bind(&LogManager::_LoggerThread, this)));
+}
 
-	return true;
+LogManager::~LogManager()
+{
+    mThread->interrupt();
+    mThread->join();
+    mOutputFile->close();
 }
 
 void LogManager::_LoggerThread()
 {
 	std::vector<LOG_ENTRY*> mTempEntries;
-
+    
 	char* priority_strings[] = {"EMER", "ALRT", "CRIT", "ERRO", "WARN", "NOTI", "INFO", "DEBG"};
 
 	while(true)
 	{
-		this->mEntriesMutex.lock();
+		mEntriesMutex->lock();
 
 		mTempEntries.reserve(mEntries.size());
 
@@ -99,7 +93,7 @@ void LogManager::_LoggerThread()
 			mTempEntries.push_back(mEntries.front());
 			mEntries.pop();
 		}
-		this->mEntriesMutex.unlock();
+		mEntriesMutex->unlock();
 
 		std::vector<LOG_ENTRY*>::iterator end = mTempEntries.end();
 
@@ -121,26 +115,30 @@ void LogManager::_LoggerThread()
 			
 			if((*it)->mChannels & LOG_CHANNEL_FILE && ((*it)->mPriority <= mMinPriorities[1]))
 			{
-				if(mOutputFile)
+				if(mOutputFile->is_open())
 				{
-          // Use a lock guard for the mutex which will unlock when it goes out of scope,
-          // in this case at the end of this inner if statement.
-          boost::lock_guard<boost::mutex> guard(mEntriesMutex);
-
 					if(!(*it)->mContinuation)
-						fprintf(mOutputFile, "[%02d:%02d:%02d] [%s] ",t.tm_hour,t.tm_min,t.tm_sec, priority_strings[(int)(*it)->mPriority - 1]);
+					{
+						*mOutputFile << "[" << std::setw(2) << t.tm_hour;
+						*mOutputFile << ":" << std::setw(2) << t.tm_min;
+						*mOutputFile << ":" << std::setw(2) << t.tm_sec;
+						*mOutputFile << "] [" << priority_strings[(int)(*it)->mPriority - 1] << "] ";
+
+						//fprintf(mOutputFile, "[%02d:%02d:%02d] [%s] ",t.tm_hour,t.tm_min,t.tm_sec, priority_strings[(int)(*it)->mPriority - 1]);
+					}
 					else
-						fprintf(mOutputFile, "                  ");
+					{
+						*mOutputFile << "                  ";
+						//fprintf(mOutputFile, "                  ");
+					}
 					
-					fprintf(mOutputFile, "%s\n", (*it)->mMessage.c_str());
-					fflush(mOutputFile);
+					*mOutputFile << (*it)->mMessage.c_str() << std::endl;
+					mOutputFile->flush();
+					//fprintf(mOutputFile, "%s\n", (*it)->mMessage.c_str());
+					//fflush(mOutputFile);
 				}
 			}
-
-			//if((*it)->mChannels & LOG_CHANNEL_DATABASE && ((*it)->mPriority <= mMinPriorities[2]))
-			//{
-			//}
-
+            
 			delete (*it);
 		}
 
@@ -181,9 +179,9 @@ void LogManager::log(LOG_PRIORITY priority, std::string format, ...)
   entry->mMessage.assign(buffer.begin(), buffer.end());
 	entry->mContinuation = false;
 
-	mEntriesMutex.lock();
+	mEntriesMutex->lock();
 	mEntries.push(entry);
-	mEntriesMutex.unlock();
+	mEntriesMutex->unlock();
 }
 
 void LogManager::logCont(LOG_PRIORITY priority, std::string format, ...)
@@ -208,12 +206,12 @@ void LogManager::logCont(LOG_PRIORITY priority, std::string format, ...)
   entry->mMessage.assign(buffer.begin(), buffer.end());
 	entry->mContinuation = true;
 
-	mEntriesMutex.lock();
+	mEntriesMutex->lock();
 	mEntries.push(entry);
-	mEntriesMutex.unlock();
+	mEntriesMutex->unlock();
 }
 
-void LogManager::logS(LOG_PRIORITY priority, uint8 channels, std::string format, ...)
+void LogManager::logS(LOG_PRIORITY priority, uint8_t channels, std::string format, ...)
 {
 	//Read the VA List Info
 	va_list args;
@@ -234,12 +232,12 @@ void LogManager::logS(LOG_PRIORITY priority, uint8 channels, std::string format,
   entry->mMessage.assign(buffer.begin(), buffer.end());
 	entry->mContinuation = false;
 
-	mEntriesMutex.lock();
+	mEntriesMutex->lock();
 	mEntries.push(entry);
-	mEntriesMutex.unlock();
+	mEntriesMutex->unlock();
 }
 
-void LogManager::logContS(LOG_PRIORITY priority, uint8 channels, std::string format, ...)
+void LogManager::logContS(LOG_PRIORITY priority, uint8_t channels, std::string format, ...)
 {
 	//Read the VA List Info
 	va_list args;
@@ -260,7 +258,7 @@ void LogManager::logContS(LOG_PRIORITY priority, uint8 channels, std::string for
   entry->mMessage.assign(buffer.begin(), buffer.end());
 	entry->mContinuation = true;
 
-	mEntriesMutex.lock();
+	mEntriesMutex->lock();
 	mEntries.push(entry);
-	mEntriesMutex.unlock();
+	mEntriesMutex->unlock();
 }

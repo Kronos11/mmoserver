@@ -26,30 +26,34 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
 #include "ZoneServer.h"
-#include "AdminManager.h"
-#include "BuffManager.h"
 #include "CharacterLoginHandler.h"
 #include "CharSheetManager.h"
+//	Managers
+#include "CraftingManager.h"
+#include "AdminManager.h"
+#include "ArtisanManager.h"
+#include "BuffManager.h"
 #include "CombatManager.h"
 #include "EntertainerManager.h"
-#include "Food.h"
 #include "ForageManager.h"
 #include "GroupManager.h"
 #include "MedicManager.h"
-#include "NonPersistentItemFactory.h"
-#include "NonPersistentNpcFactory.h"
-#include "nonPersistantObjectFactory.h"
 #include "NpcManager.h"
-#include "ObjectControllerCommandMap.h"
-#include "ObjectControllerDispatch.h"
-#include "ObjectFactory.h"
 #include "ScoutManager.h"
 #include "SkillManager.h"
 #include "StructureManager.h"
 #include "TradeManager.h"
-#include "TravelMapHandler.h"
 #include "UIManager.h"
 #include "WorldManager.h"
+
+#include "Food.h"
+#include "NonPersistentItemFactory.h"
+#include "NonPersistentNpcFactory.h"
+#include "nonPersistantObjectFactory.h"
+#include "ObjectControllerCommandMap.h"
+#include "ObjectControllerDispatch.h"
+#include "ObjectFactory.h"
+#include "TravelMapHandler.h"
 #include "WorldConfig.h"
 
 // External references
@@ -89,6 +93,7 @@ mZoneName(zoneName),
 mNetworkManager(0),
 mDatabaseManager(0),
 mRouterService(0),
+mLastHeartbeat(0),
 mDatabase(0)
 {
 	Anh_Utils::Clock::Init();
@@ -167,6 +172,10 @@ mDatabase(0)
 	(void)ScoutManager::Instance();
 	(void)NonPersistantObjectFactory::Instance();
 
+	//ArtisanManager callback
+	ArtisanManager::Init();
+	CraftingManager::Init(mDatabase);
+
 	UIManager::Init(mDatabase,mMessageDispatch);
 	CombatManager::Init(mDatabase);
 	TravelMapHandler::Init(mDatabase,mMessageDispatch,zoneId);
@@ -229,7 +238,8 @@ ZoneServer::~ZoneServer(void)
 	delete mNetworkManager;
 
 	delete mDatabaseManager;
-
+	delete gCraftingManager->getSingletonPtr();
+	delete gArtisanManager->getSingletonPtr();
 	delete gSkillManager->getSingletonPtr();
 	delete gMedicManager->getSingletonPtr();
 	delete gBuffManager->getSingletonPtr();
@@ -273,6 +283,13 @@ void ZoneServer::Process(void)
 	//  Process our core services
 	mDatabaseManager->Process();
 	mNetworkManager->Process();
+
+	// Heartbeat once in awhile
+	if (Anh_Utils::Clock::getSingleton()->getLocalTime() - mLastHeartbeat > 180000)
+	{
+		mLastHeartbeat = static_cast<uint32>(Anh_Utils::Clock::getSingleton()->getLocalTime());
+		gLogger->log(LogManager::NOTICE,"ZoneServer (%s) Heartbeat. Total  Players on zone : %i",gZoneServer->getZoneName().getAnsi(),(gWorldManager->getPlayerAccMap())->size());
+	}
 }
 
 //======================================================================================================================
@@ -331,9 +348,8 @@ void ZoneServer::_connectToConnectionServer(void)
 
 int main(int argc, char* argv[])
 {	
-#if !defined(_DEBUG) && defined(_WIN32)
-	SetUnhandledExceptionFilter(CreateMiniDump);
-#endif
+	//set stdout buffers to 0 to force instant flush
+	setvbuf( stdout, NULL, _IONBF, 0);
 
 	// The second argument on the command line should be the zone name.
 	//OnlyInstallUnhandeldExceptionFilter(); // Part of stackwalker
@@ -358,28 +374,24 @@ int main(int argc, char* argv[])
 
 	int8 configfileName[64];
 	sprintf(configfileName, "%s.cfg", zone);
+    
+    try {
+	    ConfigManager::Init(configfileName);
+    } catch (file_not_found) {
+        std::cout << "Unable to find configuration file: " << CONFIG_DIR << configfileName << std::endl;
+        exit(-1);
+    }
 
-	LogManager::Init();
-	gLogger->setupConsoleLogging((LogManager::LOG_PRIORITY)1);
+    try {
+	    LogManager::Init(
+            static_cast<LogManager::LOG_PRIORITY>(gConfig->read<int>("ConsoleLog_MinPriority", 6)),
+            static_cast<LogManager::LOG_PRIORITY>(gConfig->read<int>("FileLog_MinPriority", 6)),
+            gConfig->read<std::string>("FileLog_Name", std::string(zone)+std::string(".log")));
+    } catch (...) {
+        std::cout << "Unable to open log file for writing" << std::endl;
+        exit(-1);
+    }
 
-	ConfigManager::Init(configfileName);
-
-	try
-	{
-		gLogger->setupConsoleLogging((LogManager::LOG_PRIORITY)gConfig->read<int>("ConsoleLog_MinPriority"));
-		gLogger->setupFileLogging((LogManager::LOG_PRIORITY)gConfig->read<int>("FileLog_MinPriority"), gConfig->read<std::string>("FileLog_Name"));
-	}
-	catch(...)
-	{
-		printf("You messed up - please review logging settings in the conf file");
-		printf("set standard log values");
-		gLogger->setupConsoleLogging((LogManager::LOG_PRIORITY)4);
-		gLogger->setupFileLogging((LogManager::LOG_PRIORITY)3, zone);
-
-		//how ? the logger didnt start up, you know ??
-		//gLogger->log(LogManager::CRITICAL, "One of your settings is setup incorrectly. The server will not be able to log ANY messages until you configure the settings properly.");
-		//return -1;
-	}
 	// Start things up
 	gZoneServer = new ZoneServer((int8*)(gConfig->read<std::string>("ZoneName")).c_str());
 
@@ -392,9 +404,14 @@ int main(int argc, char* argv[])
 		}
 		else if (Anh_Utils::kbhit())
 		{
-			if(std::cin.get() == 'q')
+			char input = std::cin.get();
+			if(input == 'q')
 			{
 				break;
+			}else if(input == 'm'){
+				char message[256];
+				std::cin.getline(message,256);
+				gWorldManager->zoneSystemMessage(message);
 			}
 		}
 

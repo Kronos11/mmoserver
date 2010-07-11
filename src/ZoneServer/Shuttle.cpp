@@ -71,7 +71,7 @@ ShuttleState Shuttle::getShuttleState()
 //
 bool Shuttle::availableInPort(void)
 {
-	string port("");
+	BString port("");
 
 	// Some shuttles are not linked to any collectors.
 	if (TicketCollector* collector = dynamic_cast<TicketCollector*>(gWorldManager->getObjectById(mTicketCollectorId)))
@@ -88,7 +88,7 @@ void Shuttle::useShuttle(PlayerObject* playerObject)
 {
 	if(playerObject->getPosture() == CreaturePosture_SkillAnimating)
 	{
-		gMessageLib->sendSystemMessage(playerObject,L"", "error_message", "wrong_state");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("error_message", "wrong_state"), playerObject);
 		return;
 	}
 
@@ -98,10 +98,10 @@ void Shuttle::useShuttle(PlayerObject* playerObject)
 	{
 		int8 sql[128];
 		sprintf(sql,"No ticket collector on duty error : %"PRIu64,mTicketCollectorId);
-		string u = BString(sql);
+		BString u = BString(sql);
 		u.convert(BSTRType_Unicode16);
 
-		gMessageLib->sendSystemMessage(playerObject,u.getUnicode16());
+		gMessageLib->SendSystemMessage(u.getUnicode16(), playerObject);
 
 		gLogger->log(LogManager::DEBUG,sql);
 
@@ -120,19 +120,19 @@ void Shuttle::useShuttle(PlayerObject* playerObject)
 	{
 		case ShuttleState_InPort:
 		{
-			string port = collector->getPortDescriptor();
+			BString port = collector->getPortDescriptor();
 
 			bool noTicket = gTravelMapHandler->findTicket(playerObject,port);
 
 			// in range check
             if(playerObject->getParentId() != getParentId() || (glm::distance(playerObject->mPosition, mPosition) > 25.0f))
 			{
-				gMessageLib->sendSystemMessage(playerObject,L"","travel","boarding_too_far");
+                gMessageLib->SendSystemMessage(::common::OutOfBand("travel", "boarding_too_far"), playerObject);
 				return;
 			}
 
 			if(noTicket)
-				gMessageLib->sendSystemMessage(playerObject,L"","travel","no_ticket");
+                gMessageLib->SendSystemMessage(::common::OutOfBand("travel", "no_ticket"), playerObject);
 			else
 				gTravelMapHandler->createTicketSelectMenu(playerObject,this,port);
 
@@ -141,7 +141,7 @@ void Shuttle::useShuttle(PlayerObject* playerObject)
 
 		case ShuttleState_Away:
 		{
-			string	awayMsg = string(BSTRType_Unicode16,256);
+			BString	awayMsg = BString(BSTRType_Unicode16,256);
 			uint32	minutes = (mAwayInterval - mAwayTime) / 60000;
 			uint32	seconds = (60000 - (mAwayTime%60000)) / 1000;
 
@@ -155,19 +155,19 @@ void Shuttle::useShuttle(PlayerObject* playerObject)
 			else
 				awayMsg.setLength(swprintf(awayMsg.getUnicode16(),80,L"The next shuttle will be ready to board in %u seconds.",seconds));
 
-      gMessageLib->sendSystemMessage(playerObject,awayMsg.getUnicode16());
+            gMessageLib->SendSystemMessage(awayMsg.getUnicode16(), playerObject);
 		}
 		break;
 
 		case ShuttleState_Landing:
 		{
-			gMessageLib->sendSystemMessage(playerObject,L"The next shuttle is about to begin boarding.");
+			gMessageLib->SendSystemMessage(L"The next shuttle is about to begin boarding.", playerObject);
 		}
 		break;
 
 		case ShuttleState_AboutBoarding:
 		{
-			gMessageLib->sendSystemMessage(playerObject,L"The next shuttle is about to begin boarding.");
+			gMessageLib->SendSystemMessage(L"The next shuttle is about to begin boarding.", playerObject);
 		}
 
 		default:break;

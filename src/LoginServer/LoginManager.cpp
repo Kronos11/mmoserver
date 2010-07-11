@@ -56,6 +56,8 @@ mDatabase(database),
 // mClock(0),
 mSendServerList(false),
 mLastStatusQuery(0),
+mLastHeartbeat(0),
+mNumClientsProcessed(0),
 mLoginClientPool(sizeof(LoginClient))
 {
 
@@ -84,6 +86,13 @@ void LoginManager::Process(void)
 		mLastStatusQuery = static_cast<uint32>(Anh_Utils::Clock::getSingleton()->getLocalTime());
 		mDatabase->ExecuteProcedureAsync(this, (void*)1, "CALL swganh.sp_ReturnGalaxyStatus;");
 	}
+
+	// Heartbeat once in awhile
+	if (Anh_Utils::Clock::getSingleton()->getLocalTime() - mLastHeartbeat > 180000)//main loop every 10ms
+	{
+		mLastHeartbeat = static_cast<uint32>(Anh_Utils::Clock::getSingleton()->getLocalTime());
+		gLogger->log(LogManager::NOTICE,"LoginServer Heartbeat. Total clients (non-unique) processed since boot: %u", mNumClientsProcessed);
+	}
 }
 
 //======================================================================================================================
@@ -96,6 +105,7 @@ NetworkClient* LoginManager::handleSessionConnect(Session* session, Service* ser
 	newClient->setState(LCSTATE_ServerHelloSent);
 
 	mLoginClientList.push_back(newClient);
+	mNumClientsProcessed++;
 
 	return newClient;
 }
@@ -138,10 +148,16 @@ void LoginManager::handleSessionMessage(NetworkClient* client, Message* message)
     case opLoginClientId:  // sent username and password.
     {
       // Start the login process
-	gLogger->log(LogManager::DEBUG,"opLoginClientId");
+	  gLogger->log(LogManager::DEBUG,"opLoginClientId");
 		
       _handleLoginClientId(loginClient, message);
       break;
+    }
+    case opLauncherSessionOpen:  //Launcher has opened a session
+    {
+        //Handle the auth, make and return a session_key for them to use
+        _handleLauncherSession(loginClient, message);
+        break;
     }
 	case opDeleteCharacterMessage:
 	{
@@ -221,6 +237,18 @@ void LoginManager::handleDatabaseJobComplete(void* ref, DatabaseResult* result)
 
 			// _sendDeleteCharacterReply(0,client);
 		}
+        case LCSTATE_RetrieveAccountId:
+        {
+            //check to see if we have an account id
+            _getLauncherSessionKey(client, result);
+            break;
+        }
+        case LCSTATE_RetrieveSessionKey:
+        {
+            //should have a session key now
+            _sendLauncherSessionKey(client, result);
+            break;
+        }
 		break;
 
 		default:break;
@@ -232,7 +260,7 @@ void LoginManager::handleDatabaseJobComplete(void* ref, DatabaseResult* result)
 void LoginManager::_handleLoginClientId(LoginClient* client, Message* message)
 {
   // Extract our username, password, and id string
-  string username, password, clientId;
+  BString username, password, clientId;
   message->getStringAnsi(username);
   message->getStringAnsi(password);
   message->getStringAnsi(clientId);
@@ -311,7 +339,7 @@ void LoginManager::_authenticateClient(LoginClient* client, DatabaseResult* resu
   {
 	  Message* newMessage;
 
-    string errType, errMsg;
+    BString errType, errMsg;
     errType = "@cpt_login_fail";
     errMsg = "@msg_login_fail";
 
@@ -439,7 +467,7 @@ void LoginManager::_sendCharacterList(LoginClient* client, DatabaseResult* resul
     result->GetNextRow(binding, &data);
 
     // Append first and last names
-    string fullName, baseModel;
+    BString fullName, baseModel;
 
     fullName << data.mFirstName;
 
@@ -595,6 +623,107 @@ void LoginManager::_updateServerStatus(DatabaseResult* result)
 		mSendServerList = false;
 	}
 }
+
+//Launcher Functions
+void LoginManager::_handleLauncherSession(LoginClient* client, Message* message)
+{
+    // Extract our username, password, and id string
+    BString username, password, clientId;
+    message->getStringAnsi(username);
+    message->getStringAnsi(password);
+    message->getStringAnsi(clientId);
+
+	if(strcmp("20090610-18:00",clientId.getAnsi()) != 0)
+	{
+		gLogger->log(LogManager::NOTICE, "illegal launcher: %s",clientId.getAnsi());
+		client->Disconnect(0);
+		return;
+	}
+
+    client->setUsername(username);
+    client->setPassword(password);
+
+	int8 sql[512];
+
+    //call the session_key creation sproc
+    sprintf(sql,"SELECT account_id FROM account WHERE username='%s' AND password = SHA1('%s');\0",client->getUsername().getAnsi(),client->getPassword().getAnsi());
+
+    //set the state
+    client->setState(LCSTATE_RetrieveAccountId);
+
+    //and execute
+    mDatabase->ExecuteProcedureAsync(this,client,sql);
+}
+
+void LoginManager::_getLauncherSessionKey(LoginClient* client, DatabaseResult* result)
+{
+    AccountData data;
+    DataBinding* binding = mDatabase->CreateDataBinding(1);
+    binding->addField(DFT_int64, offsetof(AccountData, mId), 8);
+
+    if (result->getRowCount())
+    {
+        //we have the account id
+        result->GetNextRow(binding, (void*)&data);
+        client->setAccountId(data.mId);
+
+        //log it
+        gLogger->log(LogManager::DEBUG,"void LoginManager::_sendLauncherSessionKey Login: AccountId: %u Name: %s",data.mId,client->getUsername().getAnsi());
+        
+        //get the session_key made and returned
+        int8 sql[512];
+        sprintf(sql,"CALL swganh.sp_AccountSessionKeyGenerate(%d);\0", data.mId);
+
+        client->setState(LCSTATE_RetrieveSessionKey);
+        mDatabase->ExecuteProcedureAsync(this,client,sql);
+    }
+    else
+    {
+	    Message* newMessage;
+
+        BString errType, errMsg;
+        errType = "@cpt_login_fail";
+        errMsg = "@msg_login_fail";
+
+        gLogger->log(LogManager::DEBUG," Login failed for username: %s, password: ********", client->getUsername().getAnsi(), client->getPassword().getAnsi());
+
+	    gMessageFactory->StartMessage();
+	    gMessageFactory->addUint32(opErrorMessage);
+	    gMessageFactory->addString(errType);
+	    gMessageFactory->addString(errMsg);
+	    gMessageFactory->addUint8(0);
+
+	    newMessage = gMessageFactory->EndMessage();
+
+        client->SendChannelA(newMessage, 3,false);
+        client->Disconnect(6);
+      }
+
+      // Destroy our database object
+      mDatabase->DestroyDataBinding(binding);
+}
+void LoginManager::_sendLauncherSessionKey(LoginClient* client, DatabaseResult* result)
+{
+    SessionKeyData data;
+    DataBinding* binding = mDatabase->CreateDataBinding(1);
+    binding->addField(DFT_bstring, offsetof(SessionKeyData, mSessionKey),32);
+    
+    result->GetNextRow(binding, (void*)&data);
+
+    //start the message
+    gMessageFactory->StartMessage();  
+    gMessageFactory->addUint32(opLauncherSessionCreated);
+    gMessageFactory->addUint32(32);
+    gMessageFactory->addString(data.mSessionKey);
+    
+    //and send it
+    Message* message = gMessageFactory->EndMessage();
+    client->SendChannelA(message,4,false);
+
+    //disconnect this client now
+    client->Disconnect(6);
+}
+
 
 //======================================================================================================================
 

@@ -34,8 +34,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include "DatabaseManager/DatabaseCallback.h"
 
-#include "Common/MessageDispatchCallback.h"
-
 #include "Utils/TimerCallback.h"
 
 #include <boost/thread/mutex.hpp>
@@ -77,7 +75,7 @@ typedef std::vector<AuctionItem*>	AuctionList;
 
 //======================================================================================================================
 
-class TradeManagerChatHandler : public MessageDispatchCallback, public DatabaseCallback, public TimerCallback
+class TradeManagerChatHandler : public DatabaseCallback, public TimerCallback
 {
 	public:
 
@@ -93,7 +91,6 @@ class TradeManagerChatHandler : public MessageDispatchCallback, public DatabaseC
 				// TimerCallback
 		virtual void		handleTimer(uint32 id, void* container);
 
-		virtual void		handleDispatchMessage(uint32 opcode,Message* message,DispatchClient* client);
 		virtual void		handleDatabaseJobComplete(void* ref,DatabaseResult* result);
 
 		uint64				getGlobalTickCount(){return mGlobalTickCount;}
@@ -102,7 +99,7 @@ class TradeManagerChatHandler : public MessageDispatchCallback, public DatabaseC
 
 		uint32				TerminalRegionbyID(uint64 id);
 		uint32				getBazaarRegion(uint64 ID);
-		string				getBazaarString(uint64 ID);
+		BString				getBazaarString(uint64 ID);
 		Bazaar*				getBazaarInfo(uint64 ID);
 
 

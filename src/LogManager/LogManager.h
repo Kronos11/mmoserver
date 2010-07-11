@@ -29,12 +29,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #ifndef ANH_LOGMANAGER_H
 #define ANH_LOGMANAGER_H
 
-#include "Utils\typedefs.h"
-
-#include <boost/thread/thread.hpp>
-#include <string>
+#include <cstdint>
+#include <iosfwd>
 #include <queue>
-#include <memory>
+#include <string>
 
 #define LOG_CHANNEL_CONSOLE	 1
 #define LOG_CHANNEL_FILE	 2
@@ -46,19 +44,18 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 class LOG_ENTRY;
 class Database;
 
-#ifndef _FILE_DEFINED
-struct FILE;
-#endif
+namespace boost {
+    class mutex;
+    class thread;
+}
 
 #define gLogger LogManager::getSingleton()
 
 class LogManager
 {
 public:
-	static LogManager*	getSingleton() { return mSingleton;}
-	static void			Init() { mSingleton = new LogManager();}
-
-	enum LOG_PRIORITY 
+    
+    enum LOG_PRIORITY 
 	{
 		EMERGENCY		= 1,
 		ALERT			= 2,
@@ -70,32 +67,35 @@ public:
 		DEBUG			= 8
 	};
 
-	bool setupConsoleLogging(LOG_PRIORITY min_priority);
-	bool setupFileLogging(LOG_PRIORITY min_priority, std::string filename);
+	static LogManager*	getSingleton() { return mSingleton;}
+	static void			Init(LOG_PRIORITY console_priority, LOG_PRIORITY file_priority, std::string filename) { mSingleton = new LogManager(console_priority, file_priority, filename);}
 	
 	void log(LOG_PRIORITY priority, std::string format, ...);
 	void logCont(LOG_PRIORITY priority, std::string format, ...);
 
-	void logS(LOG_PRIORITY priority, uint8 channels, std::string format, ...);
-	void logContS(LOG_PRIORITY priority, uint8 channels, std::string format, ...);
+	void logS(LOG_PRIORITY priority, uint8_t channels, std::string format, ...);
+	void logContS(LOG_PRIORITY priority, uint8_t channels, std::string format, ...);
 
 	static LogManager* mSingleton;
 
 private:
-	LogManager();
+	LogManager(LOG_PRIORITY console_priority, LOG_PRIORITY file_priority, std::string filename);
 	LogManager(const LogManager&);
 	LogManager& operator=(const LogManager&);
+    ~LogManager();
 
 	void _printLogo();
 	void _LoggerThread();
 
-	boost::thread				mThread;
-	boost::mutex				mEntriesMutex;
 	std::queue<LOG_ENTRY*>		mEntries;
 
 
-	uint8						mMinPriorities[3];
-	FILE*						mOutputFile;
+	uint8_t						mMinPriorities[3];
+	std::string					mFileName;
+
+	std::unique_ptr<std::ofstream> mOutputFile;
+    std::unique_ptr<boost::thread> mThread;
+    std::unique_ptr<boost::mutex> mEntriesMutex;
 };
 
 #endif

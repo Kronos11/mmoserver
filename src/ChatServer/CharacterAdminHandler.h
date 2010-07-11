@@ -28,7 +28,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #ifndef SRC_CHATSERVER_CHARACTERADMINHANDLER_H_
 #define SRC_CHATSERVER_CHARACTERADMINHANDLER_H_
 
-#include "Common/MessageDispatchCallback.h"
+#include "Utils/typedefs.h"
 #include "DatabaseManager/DatabaseCallback.h"
 
 
@@ -53,7 +53,7 @@ class CAAsyncContainer
 
 		QueryType		mQueryType;
 		DispatchClient*	mClient;
-		string			mObjBaseType;
+		BString			mObjBaseType;
 };
 
 //======================================================================================================================
@@ -63,23 +63,23 @@ class CharacterCreateInfo
 public:
   uint32        mAccountId;
   uint64        mCharacterId;
-  string        mFirstName;
-  string        mLastName;
-  string        mBaseModel;
-  string        mProfession;
-  string        mStartCity;
+  BString        mFirstName;
+  BString        mLastName;
+  BString        mBaseModel;
+  BString        mProfession;
+  BString        mStartCity;
   float         mScale;
-  string        mBiography;
+  BString        mBiography;
   uint16        mAppearance[0x255];
   uint16        mHairCustomization[0x71];
-  string        mHairModel;
-  string        mHairColor;
+  BString        mHairModel;
+  BString        mHairColor;
 };
 
 
 
 //======================================================================================================================
-class CharacterAdminHandler : public MessageDispatchCallback, public DatabaseCallback
+class CharacterAdminHandler : public DatabaseCallback
 {
 	public:
 
@@ -88,8 +88,6 @@ class CharacterAdminHandler : public MessageDispatchCallback, public DatabaseCal
 
 		void			Process(void);
 
-		// Inherited from MessageDispatchCallback
-		virtual void	handleDispatchMessage(uint32 opcode, Message* message, DispatchClient* client);
 		virtual void	handleDatabaseJobComplete(void* ref,DatabaseResult* result);
 
 	private:

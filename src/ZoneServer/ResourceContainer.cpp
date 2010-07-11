@@ -109,16 +109,16 @@ void ResourceContainer::setMaxAmount(uint32 max)
 }
 
 
-string ResourceContainer::getBazaarTang()
+BString ResourceContainer::getBazaarTang()
 {
     return getModelString();
 }
 
 //=============================================================================
 
-string	ResourceContainer::getBazaarName()
+BString	ResourceContainer::getBazaarName()
 {
-	string value = string(BSTRType_ANSI,256);
+	BString value = BString(BSTRType_ANSI,256);
 
 	value.setLength(sprintf(value.getAnsi(),"%s (%s)",getResource()->getType()->getName().getAnsi(),getResource()->getName().getAnsi()));
 
@@ -139,8 +139,8 @@ void ResourceContainer::sendAttributes(PlayerObject* playerObject)
 		return;
 
 	Message*	newMessage;
-	string		tmpValueStr = string(BSTRType_Unicode16,64);
-	string		value;
+	BString		tmpValueStr = BString(BSTRType_Unicode16,64);
+	BString		value;
 
 	gMessageFactory->StartMessage();
 	gMessageFactory->addUint32(opAttributeListMessage);
@@ -194,7 +194,7 @@ void ResourceContainer::sendAttributes(PlayerObject* playerObject)
 	for(uint8 i = 0;i < 11;i++)
 	{
 		uint16	attrValue = 0;
-		string	attrName;
+		BString	attrName;
 
 		if((attrValue = mResource->getAttribute(i)) != 0)
 		{
@@ -213,7 +213,7 @@ void ResourceContainer::sendAttributes(PlayerObject* playerObject)
 				case ResAttr_FL: attrName = "res_flavor";				break;
 			}
 
-			tmpValueStr = string(BSTRType_Unicode16,64);
+			tmpValueStr = BString(BSTRType_Unicode16,64);
 			tmpValueStr.setLength(swprintf(tmpValueStr.getUnicode16(),10,L"%u",attrValue));
 
 			gMessageFactory->addString(attrName);
@@ -239,7 +239,7 @@ void ResourceContainer::setParentIdIncDB(uint64 parentId)
 	gWorldManager->getDatabase()->ExecuteSqlAsync(0,0,"UPDATE resource_containers SET parent_id=%"PRIu64" WHERE id=%"PRIu64"",mParentId,this->getId());
 }
 
-void ResourceContainer::upDateFactoryVolume(string amount)
+void ResourceContainer::upDateFactoryVolume(BString amount)
 {
 	uint32 a = 0;
 	a = boost::lexical_cast<uint32>(amount.getAnsi());
@@ -272,4 +272,36 @@ void ResourceContainer::updateWorldPosition()
 {
 	gWorldManager->getDatabase()->ExecuteSqlAsync(0,0,"UPDATE resource_containers SET parent_id ='%I64u', oX='%f', oY='%f', oZ='%f', oW='%f', x='%f', y='%f', z='%f' WHERE id='%I64u'",this->getParentId(), this->mDirection.x, this->mDirection.y, this->mDirection.z, this->mDirection.w, this->mPosition.x, this->mPosition.y, this->mPosition.z, this->getId());
 	
+}
+
+void ResourceContainer::prepareCustomRadialMenuInCell(CreatureObject* creatureObject, uint8 itemCount)
+{
+	RadialMenu* radial	= new RadialMenu();
+	uint8 i = 1;
+	uint8 u = 1;
+
+	// any object with callbacks needs to handle those (received with menuselect messages) !
+	radial->addItem(i++,0,radId_split,radAction_Default,"");
+
+	radial->addItem(i++,0,radId_examine,radAction_Default,"");
+
+	radial->addItem(i++,0,radId_itemPickup,radAction_Default,"");
+	
+	u = i;
+	radial->addItem(i++,0,radId_itemMove,radAction_Default, "");	
+	radial->addItem(i++,u,radId_itemMoveForward,radAction_Default, "");//radAction_ObjCallback
+	radial->addItem(i++,u,radId_ItemMoveBack,radAction_Default, "");
+	radial->addItem(i++,u,radId_itemMoveUp,radAction_Default, "");
+	radial->addItem(i++,u,radId_itemMoveDown,radAction_Default, "");
+	
+	u = i;
+	radial->addItem(i++,0,radId_itemRotate,radAction_Default, "");
+	radial->addItem(i++,u,radId_itemRotateRight,radAction_Default, "");
+	radial->addItem(i++,u,radId_itemRotateLeft,radAction_Default, "");
+
+  
+	RadialMenuPtr radialPtr(radial);
+	mRadialMenu = radialPtr;
+
+
 }

@@ -25,28 +25,18 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 ---------------------------------------------------------------------------------------
 */
 
-#include "ObjectController.h"
-#include "HeightmapAsyncContainer.h"
+#ifndef ANH_ZONESERVER_SENDSYSTEMMAILMESSAGE_H
+#define ANH_ZONESERVER_SENDSYSTEMMAILMESSAGE_H
 
-void ObjectController::heightMapCallback(HeightmapAsyncContainer* ref)
+#include "PlayerObject.h"
+
+class SendSystemMailMessage
 {
-	switch(ref->type)
-	{
-	case HeightmapCallback_ArtisanSurvey:
-	{
-		HeightmapArtisanHandler(ref);
-		break;
-	}
+public:
+	SendSystemMailMessage(void);
+	~SendSystemMailMessage(void);
 
-	case HeightmapCallback_StructureHarvester:
-	case HeightmapCallback_StructureFactory:
-	case HeightmapCallback_StructureHouse:
-	{
-		HeightmapStructureHandler(ref);
-		break;
-	}
+	void SendNewbieMailMessage(PlayerObject* player, BString subject, BString bodyDir, BString bodyStr);
+};
 
-	}
-
-	delete ref;
-}
+#endif

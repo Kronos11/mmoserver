@@ -60,14 +60,15 @@ class ObjectContainer :	public Object, public ObjectFactoryCallback
 	                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           
 	public:
 
-		ObjectContainer(uint64 id,uint64 parentId,const string model,ObjectType type);
+		ObjectContainer(uint64 id,uint64 parentId,const BString model,ObjectType type);
 		ObjectContainer();
 		virtual ~ObjectContainer();
 
 		//handles Object ready in case our item is in the container
 		void				handleObjectReady(Object* object,DispatchClient* client);
 
-		uint64				getObjectMainParent(Object* object);
+		Object*				getObjectMainParent(Object* object);
+		uint64				getIDMainParent(Object* object);
 
 		ObjectIDList*		getObjects() { return &mData; }
 		Object*				getObjectById(uint64 id);

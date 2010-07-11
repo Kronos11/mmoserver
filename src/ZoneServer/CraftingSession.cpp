@@ -120,7 +120,7 @@ CraftingSession::~CraftingSession()
 
 	// send cancel session
 	gMessageLib->sendSharedNetworkMessage(mOwner,0,1);
-	gMessageLib->sendSystemMessage(mOwner,L"","ui_craft","session_ended");
+    gMessageLib->SendSystemMessage(::common::OutOfBand("ui_craft", "session_ended"), mOwner);
 
 	// send player updates
 	gMessageLib->sendStateUpdate(mOwner);
@@ -340,12 +340,37 @@ void CraftingSession::handleObjectReady(Object* object,DispatchClient* client)
 {
 
 	Item* item = dynamic_cast<Item*>(object);
-
+	if(!item)
+	{//Manufacturingschematic couldnt be created!!! Crashbug patch for: http://paste.swganh.org/viewp.php?id=20100627064849-3d026388be3dc63f7d9706f737e6d510
+		gLogger->log(LogManager::CRITICAL,"CraftingSession::handleObjectReady: Couldnt Cast item.");
+		mManufacturingSchematic = NULL;
+		
+		gMessageLib->sendCraftAcknowledge(opCreatePrototypeResponse,CraftCreate_Failure,this->getCounter(),mOwner);
+		// end the session
+		gCraftingSessionFactory->destroySession(this);
+		return;
+	}
 	// its the manufacturing schematic
 	if(item->getItemFamily() == ItemFamily_ManufacturingSchematic)
 	{
+		//Manufacturingschematic couldnt be created!!! possibly(!) db threading issue
 		mManufacturingSchematic = dynamic_cast<ManufacturingSchematic*>(item);
+		if(!mManufacturingSchematic)
+		{
+			gLogger->log(LogManager::CRITICAL,"CraftingSession::handleObjectReady: Couldnt Cast ManufacturingSchematic.");
 
+			if(mDraftSchematic)
+			{
+				gLogger->log(LogManager::CRITICAL,"CraftingSession::handleObjectReady: DraftSchematic : %s / Object : %I64u",mDraftSchematic->getModel(),object->getId());
+				gLogger->log(LogManager::CRITICAL,"CraftingSession::handleObjectReady: DraftSchematic batch: %4u",mDraftSchematic->getWeightsBatchId());
+			}
+			mManufacturingSchematic = NULL;
+			gMessageLib->sendCraftAcknowledge(opCreatePrototypeResponse,CraftCreate_Failure,this->getCounter(),mOwner);
+			// end the session
+			gCraftingSessionFactory->destroySession(this);
+			return;
+
+		}
 		mManufacturingSchematic->setComplexity((float)mDraftSchematic->getComplexity());
 
 		// now request the (temporary) item, based on the draft schematic defaults
@@ -357,8 +382,8 @@ void CraftingSession::handleObjectReady(Object* object,DispatchClient* client)
 		mItem = item;
 
 		// link item data
-		mManufacturingSchematic->setName(mItem->getName().getAnsi());
-		mManufacturingSchematic->setItemModel(mItem->getModelString().getAnsi());
+			mManufacturingSchematic->setName(mItem->getName().getAnsi());
+			mManufacturingSchematic->setItemModel(mItem->getModelString().getAnsi());
 		//mManufacturingSchematic->setModelString(mItem->getModelString());
 
 		// set up initial configuration
@@ -377,9 +402,6 @@ void CraftingSession::handleObjectReady(Object* object,DispatchClient* client)
 		//% just upsets the standard query
 		mDatabase->ExecuteSqlAsyncNoArguments(this,container,sql);
 		//mDatabase->ExecuteSqlAsync(this,container,sql);
-
-
-
 	}
 }
 
@@ -417,7 +439,7 @@ bool CraftingSession::selectDraftSchematic(uint32 schematicIndex)
 	if(!mDraftSchematic->isCraftEnabled())
 	{
 		gLogger->log(LogManager::NOTICE,"CraftingSession::selectDraftSchematic: schematic not craftable crc:%u",schemCrc);
-		gMessageLib->sendSystemMessage(mOwner,L"This item is currently not craftable.");
+		gMessageLib->SendSystemMessage(L"This item is currently not craftable.", mOwner);
 		return(true);
 	}
 
@@ -672,7 +694,7 @@ void CraftingSession::assemble(uint32 counter)
 	mCounter = counter;
 
 	// get the items serial
-	string serial;
+	BString serial;
 	serial = getSerial();
 	mItem->addAttributeIncDB("serial_number",serial.getAnsi());
 
@@ -848,7 +870,7 @@ void CraftingSession::createPrototype(uint32 noPractice,uint32 counter)
 		mItem->setAttributeIncDB("crafter",mOwner->getFirstName().getAnsi());
 
 		// now the serial
-		string serial = getSerial();
+		BString serial = getSerial();
 
 		// adds automatically when necessary
 		mItem->setAttributeIncDB("serial_number",serial.getAnsi());
@@ -1044,7 +1066,7 @@ float CraftingSession::_calcWeightedResourceValue(CraftWeights* weights)
 		slotCounted	= false;
 
 		// skip if its a sub component slot
-		if(manSlot->mDraftSlot->getType() != 4)
+		if(manSlot->mDraftSlot->getType() != DST_Resource)
 		{
 			++manIt;
 			continue;
@@ -1052,6 +1074,21 @@ float CraftingSession::_calcWeightedResourceValue(CraftWeights* weights)
 
 		// we limit it so that only the same resource can go into one slot, so grab only the first entry
 		filledResIt		= manSlot->mFilledResources.begin();
+
+		if(manSlot->mFilledResources.size() == 0)
+		{
+			//PANICK - theres no resource filled !!!!!!!!!!!!!!!!!!!!!!!!!!
+			gLogger->log(LogManager::DEBUG,"CraftingSession::_calcWeightedResourceValue: NO REOURCE IN RESOURCE SLOT :");
+			
+			if(manSlot->mDraftSlot->getOptional())
+			{
+				gLogger->log(LogManager::DEBUG,"CraftingSession::_calcWeightedResourceValue: SLOT WAS OPTIONAL:");
+			}
+			assert(false&&"CraftingSession::_calcWeightedResourceValue: NO RESSOURCE IN RESOURCE SLOT ");
+			++manIt;
+			continue;
+		}
+
 		resource		= gResourceManager->getResourceById((*filledResIt).first);
 		totalResStat	= 0.0f;
 		totalQuantity	= 0.0f;
@@ -1179,12 +1216,12 @@ void CraftingSession::createManufactureSchematic(uint32 counter)
 	collectComponents();
 
 	//manufacturing limit
-	string limit = boost::lexical_cast<std::string>(this->getProductionAmount()).c_str();
+	BString limit = boost::lexical_cast<std::string>(this->getProductionAmount()).c_str();
 	
 	mManufacturingSchematic->addAttributeIncDB("manf_limit",limit.getAnsi());
 
 
-	string mask = boost::lexical_cast<std::string>(mDraftSchematic->getSubCategory()).c_str();
+	BString mask = boost::lexical_cast<std::string>(mDraftSchematic->getSubCategory()).c_str();
 	mManufacturingSchematic->addInternalAttributeIncDB("craft_tool_typemask",mask.getAnsi());
 
 	gMessageLib->sendCraftAcknowledge(opCreatePrototypeResponse,CraftCreate_2,static_cast<uint8>(counter),mOwner);

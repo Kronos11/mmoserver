@@ -46,6 +46,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include "WorldManager.h"
 #include "ZoneTree.h"
 
+#include "Common/OutOfBand.h"
 #include "LogManager/LogManager.h"
 #include "DatabaseManager/Database.h"
 #include "DatabaseManager/DataBinding.h"
@@ -57,6 +58,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Utils/rand.h"
 #include <cstdio>
 #include <glm/gtx/random.hpp>
+
+using ::common::OutOfBand;
 
 //======================================================================================================================
 
@@ -514,7 +517,7 @@ void MissionManager::missionRequest(PlayerObject* player, uint64 mission_id)
 	//automatically checks the datapads capacity
 	if(!datapad->addMission(mission))
 	{
-		gMessageLib->sendSystemMessage(player,L"","mission/mission_generic","too_many_missions");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("mission/mission_generic", "too_many_missions"), player);
 		return;
 	}
 	mission_bag->removeMission(mission);
@@ -554,7 +557,7 @@ void MissionManager::missionRequest(PlayerObject* player, uint64 mission_id)
 	}
 	else
 	{
-		gMessageLib->sendSystemMessage(player,L"","mission/mission_generic","survey_start");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("mission/mission_generic", "survey_start"), player);
 	}
 
 	//Accept the mission let the player know
@@ -585,7 +588,7 @@ return;
 
 void MissionManager::missionComplete(PlayerObject* player, MissionObject* mission)
 {
-	gMessageLib->sendSystemMessage(player,L"","mission/mission_generic","success_w_amount","", "", L"",mission->getReward());
+    gMessageLib->SendSystemMessage(::common::OutOfBand("mission/mission_generic", "success_w_amount", 0, 0, 0, mission->getReward()), player);
 
 	//remove mission
 	gMessageLib->sendSetWaypointActiveStatus(mission->getWaypoint(),false,player);
@@ -659,7 +662,7 @@ void MissionManager::missionAbort(PlayerObject* player, uint64 mission_id)
 		}
 
 		datapad->removeMission(mission);
-		gMessageLib->sendSystemMessage(player,L"","mission/mission_generic","incomplete");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("mission/mission_generic", "incomplete"), player);
 		gMessageLib->sendSetWaypointActiveStatus(mission->getWaypoint(),false,player);
 		gMessageLib->sendMissionAbort(mission,player);
 		gMessageLib->sendContainmentMessage(mission->getId(), datapad->getId(), 4, player);
@@ -679,7 +682,7 @@ return;
 
 void MissionManager::missionFailed(PlayerObject* player, MissionObject* mission)
 {
-	gMessageLib->sendSystemMessage(player,L"","mission/mission_generic","failed");
+    gMessageLib->SendSystemMessage(::common::OutOfBand("mission/mission_generic", "failed"), player);
 
 
 	//If we failed an entertainer mission then we need to remove the timer associated with it.
@@ -753,9 +756,9 @@ bool MissionManager::checkDeliverMission(PlayerObject* player,NPCObject* npc)
 					//This is the start npc for the deliver mission
 					char mp[10];
 					sprintf(mp,"m%dp",mission->getNum());
-					gMessageLib->sendSpatialChat(npc,player,L"",mission->getTitleFile(),mp);
+                    gMessageLib->SendSpatialChat(npc, OutOfBand(mission->getTitleFile().getAnsi(), mp), NULL, player->getId());
 					mission->setStartNPC(NULL);
-					gMessageLib->sendSystemMessage(player,L"","mission/mission_generic","deliver_received_data");
+                    gMessageLib->SendSystemMessage(::common::OutOfBand("mission/mission_generic", "deliver_received_data"), player);
 					MissionObject* updater = new MissionObject();
 					updater->clear();
 					updater->setId(mission->getId());
@@ -775,7 +778,7 @@ bool MissionManager::checkDeliverMission(PlayerObject* player,NPCObject* npc)
 					//This is the end npc for the deliver mission.
 					char mr[10];
 					sprintf(mr,"m%dr",mission->getNum());
-					gMessageLib->sendSpatialChat(npc,player,L"",mission->getTitleFile(),mr);
+                    gMessageLib->SendSpatialChat(npc, OutOfBand(mission->getTitleFile().getAnsi(), mr), NULL, player->getId());
 					missionComplete(player,mission);
 					mission->setDestinationNPC(NULL);
 					it = datapad->removeMission(it);
@@ -891,9 +894,9 @@ void MissionManager::checkSurveyMission(PlayerObject* player,CurrentResource* re
                                 static_cast<uint32>(glm::distance(mission->getIssuingTerminal()->mPosition, highestDist.position)),
                                     (1024 - (int)glm::distance(mission->getIssuingTerminal()->mPosition, highestDist.position)));
 
-							string s = BString(sm);
+							BString s = BString(sm);
 							s.convert(BSTRType_Unicode16);
-              gMessageLib->sendSystemMessage(player,s.getUnicode16());
+                            gMessageLib->SendSystemMessage(s.getUnicode16(), player);
 						}
 					}
 				}
@@ -923,9 +926,9 @@ bool MissionManager::checkCraftingMission(PlayerObject* player,NPCObject* npc)
 					//This is the start npc for the deliver mission
 					char mp[10];
 					sprintf(mp,"m%dp",mission->getNum());
-					gMessageLib->sendSpatialChat(npc,player,L"",mission->getTitleFile(),mp);
+                    gMessageLib->SendSpatialChat(npc, OutOfBand(mission->getTitleFile().getAnsi(), mp), NULL, player->getId());					
 					mission->setStartNPC(NULL);
-					gMessageLib->sendSystemMessage(player,L"","mission/mission_generic","deliver_received_data");
+                    gMessageLib->SendSystemMessage(::common::OutOfBand("mission/mission_generic", "deliver_received_data"), player);
 					MissionObject* updater = new MissionObject();
 					updater->clear();
 					updater->setId(mission->getId());
@@ -945,7 +948,7 @@ bool MissionManager::checkCraftingMission(PlayerObject* player,NPCObject* npc)
 					//This is the end npc for the deliver mission.
 					char mr[10];
 					sprintf(mr,"m%dr",mission->getNum());
-					gMessageLib->sendSpatialChat(npc,player,L"",mission->getTitleFile(),mr);
+                    gMessageLib->SendSpatialChat(npc, OutOfBand(mission->getTitleFile().getAnsi(), mr), NULL, player->getId());
 					missionComplete(player,mission);
 					mission->setDestinationNPC(NULL);
 					it = datapad->removeMission(it);
@@ -1102,7 +1105,7 @@ MissionObject* MissionManager::generateDestroyMission(MissionObject* mission, ui
 	//Creator
 
 	sprintf(mo,"m%do",mission_num);
-	string moS(mo);
+	BString moS(mo);
 	gLogger->log(LogManager::DEBUG,"MissionManager : creator :%s",moS.getAnsi());
 	NameMap nameMap = link->missiontype->names;
 	NameMap::iterator NameMapIt = nameMap.find(moS.getCrc());
@@ -1399,7 +1402,7 @@ MissionObject* MissionManager::generateCraftingMission(MissionObject* mission)
 	mission->setMissionType(crafting);
 
 	//TEMP!
-	string targets[8][2] =
+	BString targets[8][2] =
 	{
 		{"@item_n:output_governor","object/tangible/mission/quest_item/shared_attunement_grid.iff"},
 		{"@item_n:current_alternator","object/tangible/mission/quest_item/shared_current_alternator.iff"},

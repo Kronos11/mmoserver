@@ -31,9 +31,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include <map>
 #include <vector>
 
-#include "Common/MessageDispatchCallback.h"
 #include "DatabaseManager/DatabaseCallback.h"
-
 #include "Utils/typedefs.h"
 
 //======================================================================================================================
@@ -57,8 +55,6 @@ typedef std::vector<Player*>		PlayerList;
 typedef std::map<uint32,Channel*>	ChannelMap;
 typedef std::map<uint32,Channel*>	ChannelNameMap;
 typedef std::vector<Channel*>			ChannelList;
-typedef void (ChatManager::*funcPointer)(Message*,DispatchClient*);
-typedef std::map<uint32,funcPointer>	CommandMap;
 
 #define	gChatManager	ChatManager::getSingletonPtr()
 
@@ -111,12 +107,12 @@ public:
 	uint64			mReceiverId;
 	uint32			mRequestId;
 	uint32			mMailCounter;
-	string			mName;
+	BString			mName;
 };
 
 //======================================================================================================================
 
-class ChatManager : public MessageDispatchCallback, public DatabaseCallback
+class ChatManager: public DatabaseCallback
 {
 	public:
 
@@ -126,21 +122,20 @@ class ChatManager : public MessageDispatchCallback, public DatabaseCallback
 		static ChatManager*	Init(Database* database,MessageDispatch* dispatch);
 		static ChatManager*	getSingletonPtr() { return mSingleton; }
 
-		virtual void        handleDispatchMessage(uint32 opcode,Message* message,DispatchClient* client);
 		virtual void		handleDatabaseJobComplete(void* ref,DatabaseResult* result);
 
 		void				registerChannel(Channel* channel);
 		void				unregisterChannel(Channel* channel);
 
 		Channel*			getChannelById(uint32 id);
-		Channel*			getChannelByName(string name);
+		Channel*			getChannelByName(BString name);
 
-		string				getMainCategory(){ return mMainCategory; }
-		string				getGalaxyName(){ return mGalaxyName; }
+		BString				getMainCategory(){ return mMainCategory; }
+		BString				getGalaxyName(){ return mGalaxyName; }
 
 		Player*				getPlayerByAccId(uint32 accId);
 		Player*				getPlayerbyId(uint64 id);
-		Player*				getPlayerByName(string name);
+		Player*				getPlayerByName(BString name);
 		const int8* getPlanetNameById(uint32 planetId) const { return mvPlanetNames[planetId].getAnsi(); }
 
 		void				sendFriendList(Player* player);
@@ -162,11 +157,10 @@ class ChatManager : public MessageDispatchCallback, public DatabaseCallback
 
 		void			_loadDatabindings();
 		void			_destroyDatabindings();
-		void			_loadCommandMap();
 		void			_loadChannels(DatabaseResult* result);
 		void			_registerCallbacks();
 		void			_unregisterCallbacks();
-		string			_queryServerName();
+		BString			_queryServerName();
 
 		void			_processClusterClientConnect(Message* message,DispatchClient* client);
 		void			_processClusterClientDisconnect(Message* message,DispatchClient* client);
@@ -196,7 +190,7 @@ class ChatManager : public MessageDispatchCallback, public DatabaseCallback
 		void			_processPersistentMessageToServer(Message* message,DispatchClient* client);
 		void			_processRequestPersistentMessage(Message* message,DispatchClient* client);
 		void			_processDeletePersistentMessage(Message* message,DispatchClient* client);
-		void			_PersistentMessagebySystem(Mail* mail,DispatchClient* client, string sender);
+		void			_PersistentMessagebySystem(Mail* mail,DispatchClient* client, BString sender);
 		void			_processSystemMailMessage(Message* message,DispatchClient* client);
 
 		// friendlist
@@ -210,7 +204,7 @@ class ChatManager : public MessageDispatchCallback, public DatabaseCallback
 		void			_processFindFriendMessage(Message* message,DispatchClient* client);
 		void			_processFindFriendGotPosition(Message* message,DispatchClient* client);
 
-		void			_handleFindFriendDBReply(Player* player,uint64 retCode,string friendName);
+		void			_handleFindFriendDBReply(Player* player,uint64 retCode,BString friendName);
 
 		void			_processWhenLoaded(Message* message,DispatchClient* client);
 
@@ -225,9 +219,9 @@ class ChatManager : public MessageDispatchCallback, public DatabaseCallback
 		static bool				mInsFlag;
 		static ChatManager*		mSingleton;
 
-		bool					isValidName(string name);
-		bool					isValidExactName(string name);
-		string*					getFirstName(string& name);
+		bool					isValidName(BString name);
+		bool					isValidExactName(BString name);
+		BString*					getFirstName(BString& name);
 
 		Database*				mDatabase;
 		MessageDispatch*        mMessageDispatch;
@@ -235,11 +229,9 @@ class ChatManager : public MessageDispatchCallback, public DatabaseCallback
 		ChannelMap				mChannelMap;
 		ChannelNameMap			mChannelNameMap;
 
-		string					mMainCategory;
-		string					mGalaxyName;
+		BString					mMainCategory;
+		BString					mGalaxyName;
 		BStringVector			mvPlanetNames;
-
-		CommandMap				mCommandMap;
 
 		PlayerAccountMap		mPlayerAccountMap;
 		PlayerNameMap			mPlayerNameMap;

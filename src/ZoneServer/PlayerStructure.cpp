@@ -46,6 +46,8 @@ PlayerStructure::PlayerStructure() : TangibleObject()
 	mMaxCondition	= 1000;
 	mCondition		= 1000;
 	mWillRedeed		= false;
+
+	mState			= 0;
 	
 	mHousingAdminList.clear();
 }
@@ -219,7 +221,7 @@ void PlayerStructure::sendStructureHopperList(uint64 playerId)
 // thats for the transferbox
 //
 
-void PlayerStructure::handleUIEvent(string strCharacterCash, string strHarvesterCash, UIWindow* window)
+void PlayerStructure::handleUIEvent(BString strCharacterCash, BString strHarvesterCash, UIWindow* window)
 {
 
 	PlayerObject* player = window->getOwner();
@@ -234,10 +236,10 @@ void PlayerStructure::handleUIEvent(string strCharacterCash, string strHarvester
 		case SUI_Window_Deposit_Power:
 		{
 				strCharacterCash.convert(BSTRType_ANSI);
-				string characterPower = strCharacterCash;
+				BString characterPower = strCharacterCash;
 
 				strHarvesterCash.convert(BSTRType_ANSI);
-				string harvesterPower = strHarvesterCash;
+				BString harvesterPower = strHarvesterCash;
 
 				int32 harvesterPowerDelta = atoi(harvesterPower.getAnsi());
 
@@ -353,7 +355,7 @@ void PlayerStructure::handleUIEvent(string strCharacterCash, string strHarvester
 //=============================================================================
 // 
 
-void PlayerStructure::handleUIEvent(uint32 action,int32 element,string inputStr,UIWindow* window)
+void PlayerStructure::handleUIEvent(uint32 action,int32 element,BString inputStr,UIWindow* window)
 {
 
 	PlayerObject* player = window->getOwner();
@@ -371,7 +373,7 @@ void PlayerStructure::handleUIEvent(uint32 action,int32 element,string inputStr,
 		{
 			uint64 ManSchemId = 0;
 			//check for use schematic
-			string b = window->getOption3();
+			BString b = window->getOption3();
 			b.convert(BSTRType_ANSI);
 			if(strcmp(b.getAnsi(),"false") == 0)
 			{
@@ -387,7 +389,7 @@ void PlayerStructure::handleUIEvent(uint32 action,int32 element,string inputStr,
 				else
 				{
 					SAFE_DELETE(asyncContainer);
-					gMessageLib->sendSystemMessage(player,L"","manf_station","schematic_not_added");
+                    gMessageLib->SendSystemMessage(::common::OutOfBand("manf_station", "schematic_not_added"), player);
 					return;
 				}
 				
@@ -438,8 +440,6 @@ void PlayerStructure::handleUIEvent(uint32 action,int32 element,string inputStr,
 
 		case SUI_Window_Structure_Delete:
 		{
-			//================================
-			// now that a decision has been made get confirmation
 			gStructureManager->createNewStructureDeleteConfirmBox(player,this );
 		
 		}
@@ -459,7 +459,7 @@ void PlayerStructure::handleUIEvent(uint32 action,int32 element,string inputStr,
 			if(inputStr.getLength() > 68)
 			{
 				//hmmm no answer - remain as it is?
-				gMessageLib->sendSystemMessage(player,L"","player_structure","not_valid_name"); 
+                gMessageLib->SendSystemMessage(::common::OutOfBand("player_structure", "not_valid_name"), player);
 				return;
 
 			}
@@ -493,6 +493,14 @@ void PlayerStructure::handleUIEvent(uint32 action,int32 element,string inputStr,
 			inputStr.convert(BSTRType_ANSI);
 			if(inputStr.getCrc() == this->getCode().getCrc())
 			{
+				if((this->checkStatesEither(PlayerStructureState_Destroy)))
+				{
+					//dont start structure destruction more than once
+					//gLogger->log(LogManager::DEBUG,"PlayerStructureTerminal::handleObjectMenuSelect::structure in the process of being deleted");
+					return;
+				}
+				this->toggleStateOn(PlayerStructureState_Destroy);
+		
 				//delete it
 				mTTS.todo		= ttE_Delete;
 				mTTS.playerId	= player->getId();

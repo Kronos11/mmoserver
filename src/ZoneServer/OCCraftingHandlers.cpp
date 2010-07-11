@@ -64,7 +64,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 void ObjectController::_handleRequestDraftslotsBatch(uint64 targetId,Message* message,ObjectControllerCmdProperties* cmdProperties)
 {
 	PlayerObject*	playerObject	= dynamic_cast<PlayerObject*>(mObject);
-	string			requestStr;
+	BString			requestStr;
 	BStringVector	dataElements;
 	uint16			elementCount;
 
@@ -101,7 +101,7 @@ void ObjectController::_handleRequestDraftslotsBatch(uint64 targetId,Message* me
 void ObjectController::_handleRequestResourceWeightsBatch(uint64 targetId,Message* message,ObjectControllerCmdProperties* cmdProperties)
 {
 	PlayerObject*	playerObject	= dynamic_cast<PlayerObject*>(mObject);
-	string			requestStr;
+	BString			requestStr;
 	BStringVector	dataElements;
 	uint16			elementCount;
 
@@ -179,13 +179,13 @@ void ObjectController::_handleRequestCraftingSession(uint64 targetId,Message* me
 
 	if(playerObject->isDead() || playerObject->isIncapacitated())
 	{
-		gMessageLib->sendSystemMessage(playerObject,L"", "error_message", "wrong_state");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("error_message", "wrong_state"), playerObject);
 		return;
 	}
 
 	if(playerObject->getPerformingState() != PlayerPerformance_None)
 	{
-		gMessageLib->sendSystemMessage(playerObject,L"", "error_message", "wrong_state");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("error_message", "wrong_state"), playerObject);
 		return;
 	}
 
@@ -199,11 +199,11 @@ void ObjectController::_handleRequestCraftingSession(uint64 targetId,Message* me
 	if(tool->getAttribute<std::string>("craft_tool_status") == "@crafting:tool_status_working")
 	{
 		if(tool->getCurrentItem())
-			gMessageLib->sendSystemMessage(playerObject,L"","system_msg","crafting_tool_creating_prototype");
+            gMessageLib->SendSystemMessage(::common::OutOfBand("system_msg", "crafting_tool_creating_prototype"), playerObject);
 
 		// TODO: put the right message for practice
 		else
-			gMessageLib->sendSystemMessage(playerObject,L"","system_msg","crafting_tool_creating_prototype");
+            gMessageLib->SendSystemMessage(::common::OutOfBand("system_msg", "crafting_tool_creating_prototype"), playerObject);
 
 		gMessageLib->sendCraftAcknowledge(opCraftCancelResponse,0,0,playerObject);
 
@@ -224,7 +224,7 @@ void ObjectController::_handleSelectDraftSchematic(uint64 targetId,Message* mess
 	PlayerObject*		playerObject	= dynamic_cast<PlayerObject*>(mObject);
 	CraftingSession*	session			= playerObject->getCraftingSession();
 	//DraftSchematic*		schematic		= NULL;
-	string				dataStr;
+	BString				dataStr;
 	uint32				schematicIndex	= 0;
 
 	message->getStringUnicode16(dataStr);
@@ -340,7 +340,7 @@ void ObjectController::handleCraftCustomization(Message* message)
 {
 	PlayerObject*		player		= dynamic_cast<PlayerObject*>(mObject);
 	CraftingSession*	session		= player->getCraftingSession();
-	string				itemName;
+	BString				itemName;
 	uint8				hmmm1,hmmm2;
 	uint32				amount,color;
 
@@ -392,7 +392,7 @@ void ObjectController::_handleNextCraftingStage(uint64 targetId,Message* message
 {
 	PlayerObject*		playerObject	= dynamic_cast<PlayerObject*>(mObject);
 	CraftingSession*	session			= playerObject->getCraftingSession();
-	string				dataStr;
+	BString				dataStr;
 	uint32				counter			= 1;
 
 	if(!session)
@@ -468,7 +468,7 @@ void ObjectController::_handleCreatePrototype(uint64 targetId,Message* message,O
 {
 	PlayerObject*		player	= dynamic_cast<PlayerObject*>(mObject);
 	CraftingSession*	session	= player->getCraftingSession();
-	string				dataStr;
+	BString				dataStr;
 	uint32				mode,counter;
 
 	if(!session)
@@ -494,7 +494,7 @@ void ObjectController::_handleCreateManufactureSchematic(uint64 targetId,Message
 {
 	PlayerObject*		player	= dynamic_cast<PlayerObject*>(mObject);
 	CraftingSession*	session	= player->getCraftingSession();
-	string				dataStr;
+	BString				dataStr;
 	uint32				counter;
 
 	if(!session)

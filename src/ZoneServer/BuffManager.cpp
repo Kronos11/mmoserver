@@ -175,14 +175,20 @@ void BuffManager::LoadBuffsFromResult(buffAsyncContainer* asyncContainer, Databa
 	for(uint64 i = 0;i < rowCount;i++)
 	{
 		result->GetNextRow(buffBinding,tmp);
-		Buff* buffTemp = Buff::FromDB(tmp, envelope->currentTime);
-		if(buffTemp->GetRemainingTime(envelope->currentTime) >0) //Check there is time left
+		
+		//Check player hasn't been logged out for more than 10mins
+		if((envelope->currentTime - tmp->mPausedGlobalTick) < 600000)
 		{
-			buffTemp->setTarget(player);
-			player->AddBuff(buffTemp);
-			player->IncBuffAsyncCount();
-		} else {
-			SAFE_DELETE(buffTemp);
+			Buff* buffTemp = Buff::FromDB(tmp, envelope->currentTime);
+			//Check there is time left
+			if(buffTemp->GetRemainingTime(envelope->currentTime) >0) 
+			{
+				buffTemp->setTarget(player);
+				player->AddBuff(buffTemp);
+				player->IncBuffAsyncCount();
+			} else {
+				SAFE_DELETE(buffTemp);
+			}
 		}
 	}
 	SAFE_DELETE(tmp);
@@ -214,7 +220,7 @@ void BuffManager::LoadBuffAttributesFromResult(buffAsyncContainer* asyncContaine
 {
 
 	DataBinding*	buffBinding = mDatabase->CreateDataBinding(4);
-	buffBinding->addField(DFT_int32,offsetof(BuffAttributeDBItem,mType),4,0);
+	buffBinding->addField(DFT_uint64,offsetof(BuffAttributeDBItem,mType),8,0);
 	buffBinding->addField(DFT_int32,offsetof(BuffAttributeDBItem,mInitialValue),4,1);
 	buffBinding->addField(DFT_int32,offsetof(BuffAttributeDBItem,mTickValue),4,2);
 	buffBinding->addField(DFT_int32,offsetof(BuffAttributeDBItem,mFinalValue),4,3);
@@ -254,32 +260,34 @@ bool BuffManager::SaveBuffsAsync(WMAsyncContainer* asyncContainer,DatabaseCallba
 	//the worldmanager will proceed with saving
 	uint32 buffCount = 0;
 
-	//Remove Deleted Buffs
-	playerObject->CleanUpBuffs();
+	if(playerObject && playerObject->isConnected()){
+		//Remove Deleted Buffs
+		playerObject->CleanUpBuffs();
 
-	playerObject->SetBuffAsyncCount(0);
+		playerObject->SetBuffAsyncCount(0);
 
-	//count the calls necessary
-	BuffList::iterator it = playerObject->GetBuffList()->begin();
-	while(it != playerObject->GetBuffList()->end())
-	{
-		//Check if it is an active Buff
-		if(!(*it)->GetIsMarkedForDeletion())
+		//count the calls necessary
+		BuffList::iterator it = playerObject->GetBuffList()->begin();
+		while(it != playerObject->GetBuffList()->end())
 		{
-			//TODO Check whether this is a buff that needs saving or just undoing or neither or both
+			//Check if it is an active Buff
+			if(!(*it)->GetIsMarkedForDeletion())
+			{
+				//TODO Check whether this is a buff that needs saving or just undoing or neither or both
 
-			gWorldManager->removeBuffToProcess((*it)->GetID());
+				gWorldManager->removeBuffToProcess((*it)->GetID());
 
-			//store the amount of async calls so we know when the last call finished
-			playerObject->IncBuffAsyncCount(); //this is the buff
+				//store the amount of async calls so we know when the last call finished
+				playerObject->IncBuffAsyncCount(); //this is the buff
 
-			playerObject->IncBuffAsyncCount(); //all attributes of a buff are stored in a single query
+				playerObject->IncBuffAsyncCount(); //all attributes of a buff are stored in a single query
 
-			//Save to DB, and remove from the Process Queue
-			if(AddBuffToDB(asyncContainer, callback, *it, currenttime))
-				buffCount++;
+				//Save to DB, and remove from the Process Queue
+				if(AddBuffToDB(asyncContainer, callback, *it, currenttime))
+					buffCount++;
+			}
+			it++;
 		}
-		it++;
 	}
 
 	return(buffCount>0);
@@ -319,7 +327,7 @@ void BuffManager::LoadBuffs(PlayerObject* playerObject, uint64 currenttime)
 	if(playerObject->GetNoOfBuffs() > 0)
 	{
 		gLogger->log(LogManager::WARNING,"PlayerObject has ghosted Buffs. Inform a developer\n", FOREGROUND_RED);
-		gMessageLib->sendSystemMessage(playerObject, L"You appear to have Ghosted Buffs (Bug #958). Please inform an SWG:ANH developer or Server Admin you saw this message");
+		gMessageLib->SendSystemMessage(L"You appear to have Ghosted Buffs (Bug #958). Please inform an SWG:ANH developer or Server Admin you saw this message", playerObject);
 		return;
 	}
 
@@ -426,7 +434,7 @@ bool BuffManager::AddBuffToDB(WMAsyncContainer* asyncContainer,DatabaseCallback*
 
 			sprintf(sql2+strlen(sql2), "(%"PRIu64",", buff->GetID());
 			sprintf(sql2+strlen(sql2), "%"PRIu64",", player->getId());
-			sprintf(sql2+strlen(sql2), "%d,", (int32)batemp->GetType());
+			sprintf(sql2+strlen(sql2), "%"PRIu64",", batemp->GetType());
 			sprintf(sql2+strlen(sql2), "%d,", batemp->GetInitialValue());
 			sprintf(sql2+strlen(sql2), "%d,", batemp->GetTickValue());
 			
@@ -530,7 +538,7 @@ void BuffManager::AddBuffToDB(Buff* buff, uint64 currenttime)
 
 			sprintf(sql2+strlen(sql2), "(%"PRIu64",", buff->GetID());
 			sprintf(sql2+strlen(sql2), "%"PRIu64",", Player->getId());
-			sprintf(sql2+strlen(sql2), "%d,", (int32)batemp->GetType());
+			sprintf(sql2+strlen(sql2), "%"PRIu64",", batemp->GetType());
 			sprintf(sql2+strlen(sql2), "%d,", batemp->GetInitialValue());
 			sprintf(sql2+strlen(sql2), "%d,", batemp->GetTickValue());
 			

@@ -28,12 +28,14 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #ifndef ANH_ZONESERVER_ADMIN_MANAGER_H
 #define ANH_ZONESERVER_ADMIN_MANAGER_H
 
-#include "Common/MessageDispatchCallback.h"
+#include "Utils/typedefs.h"
 #include <map>
 //=============================================================================
 
 class AdminRequestObject;
 class MessageDispatch;
+class DispatchClient;
+class Message;
 
 typedef std::map<uint64, AdminRequestObject*> AdminRequests;
 
@@ -45,7 +47,7 @@ enum AdminRequestt
 
 //=============================================================================
 
-class AdminManager : public MessageDispatchCallback
+class AdminManager
 {
 	public:
 
@@ -60,15 +62,15 @@ class AdminManager : public MessageDispatchCallback
 				mInstance = NULL;
 			}
 		}
-		virtual void handleDispatchMessage(uint32 opcode,Message* message,DispatchClient* client);
+
 		void registerCallbacks(void);
 		void unregisterCallbacks(void);
 		void _processScheduleShutdown(Message* message, DispatchClient* client);
 		void _processCancelScheduledShutdown(Message* message, DispatchClient* client);
 
 		uint64 handleAdminRequest(uint64 requestId, uint64 timeOverdue);
-		void addAdminRequest(uint64 type, string message, int32 ttl);
-		void cancelAdminRequest(uint64 type, string message);
+		void addAdminRequest(uint64 type, BString message, int32 ttl);
+		void cancelAdminRequest(uint64 type, BString message);
 
 		bool shutdownPending(void) { return mPendingShutdown;}
 		bool shutdownZone(void) { return mTerminateServer;}

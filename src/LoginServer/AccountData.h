@@ -52,8 +52,8 @@ class ServerData
 {
 public:
   uint32                mId;
-  string                mName;
-  string                mAddress;
+  BString                mName;
+  BString                mAddress;
   uint16                mConnectionPort;
   uint16                mPingPort;
   uint32                mPopulation;
@@ -61,6 +61,14 @@ public:
   uint32                mLastUpdate;
 };
 
+//======================================================================================================================
+// Session_Key is used by the launcher
+//======================================================================================================================
+class SessionKeyData
+{
+public:
+    BString             mSessionKey;
+};
 
 #endif // ANH_DATABASEMANAGER_ACCOUNTDATA_H
 

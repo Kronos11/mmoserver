@@ -57,7 +57,7 @@ void ObjectController::_handleSpatialChatInternal(uint64 targetId,Message* messa
 {
 	// FIXME: for now assume only players send chat
 	PlayerObject*	playerObject	= dynamic_cast<PlayerObject*>(mObject);
-	string			chatData;
+	BString			chatData;
 
 
 	message->getStringUnicode16(chatData);
@@ -90,7 +90,7 @@ void ObjectController::_handleSpatialChatInternal(uint64 targetId,Message* messa
 		data++;
 	}
 
-	string chatMessage(data);
+	BString chatMessage(data);
 
 	// need to truncate or we may get in trouble
 	if(len - byteCount > 256)
@@ -106,13 +106,24 @@ void ObjectController::_handleSpatialChatInternal(uint64 targetId,Message* messa
 
 	chatMessage.convert(BSTRType_Unicode16);
 
+    // Convert the chat elements to logical types before passing them on.
+    uint64_t chat_target_id;
+	try	{
+		chat_target_id	= boost::lexical_cast<uint64>(chatElement[0]);
+	} catch(boost::bad_lexical_cast &) {
+		chat_target_id	= 0;
+	}
+		
+	SocialChatType chat_type_id = static_cast<SocialChatType>(atoi(chatElement[1]));
+	MoodType mood_id = static_cast<MoodType>(atoi(chatElement[2]));
+
 	if (!gWorldConfig->isInstance())
 	{
-		gMessageLib->sendSpatialChat(playerObject,chatMessage,chatElement);
+        gMessageLib->SendSpatialChat(playerObject, chatMessage.getUnicode16(), NULL, chat_target_id, 0x32, chat_type_id, mood_id);
 	}
 	else
 	{
-		gMessageLib->sendSpatialChat(playerObject,chatMessage,chatElement, playerObject);
+        gMessageLib->SendSpatialChat(playerObject, chatMessage.getUnicode16(), playerObject, chat_target_id, 0x32, chat_type_id, mood_id);
 	}
 }
 
@@ -125,7 +136,7 @@ void ObjectController::_handleSocialInternal(uint64 targetId,Message* message,Ob
 {
 	// FIXME: for now assume only players send chat
 	PlayerObject*	playerObject	= dynamic_cast<PlayerObject*>(mObject);
-	string			emoteData;
+	BString			emoteData;
 	BStringVector	emoteElement;
 
 	message->getStringUnicode16(emoteData);
@@ -135,15 +146,27 @@ void ObjectController::_handleSocialInternal(uint64 targetId,Message* message,Ob
 	emoteData.convert(BSTRType_ANSI);
 	emoteData.split(emoteElement,' ');
 
-	uint64 emoteTarget = boost::lexical_cast<uint64>(emoteElement[0].getAnsi());
-	uint16 emoteId		= atoi(emoteElement[1].getAnsi());
-	uint16 sendType		= 0x0100;
+	uint64_t emoteTarget = boost::lexical_cast<uint64>(emoteElement[0].getAnsi());
+	uint32_t emoteId     = atoi(emoteElement[1].getAnsi());
+
+    // Social emotes can have one of 3 types:
+    // 1 - Performs an animation
+    // 2 - Sends a text message
+    // 3 - Both
+	uint8_t sendType = 1;
 
 	// if set, send text along with animation
-	if(atoi(emoteElement[3].getAnsi()) == 1)
-		sendType = 0x0300;
+	if(atoi(emoteElement[3].getAnsi()) == 1) {
+	    // if the player is mounted (or perhaps other states to, such as sitting) only the
+        // text should be shown. Otherwise display both text and the animation.
+        if (playerObject->checkIfMounted()) {
+            sendType = 2;
+        } else {
+            sendType = 3;
+        }
+    }
 
-	gMessageLib->sendSpatialEmote(playerObject,emoteId,sendType,emoteTarget);
+    gMessageLib->SendSpatialEmote(playerObject, emoteId, emoteTarget, sendType);
 }
 
 //=============================================================================
@@ -155,7 +178,7 @@ void ObjectController::_handleSetMoodInternal(uint64 targetId,Message* message,O
 {
 	// FIXME: for now assume only players send chat
 	PlayerObject*	playerObject	= dynamic_cast<PlayerObject*>(mObject);
-	string			moodStr;
+	BString			moodStr;
 	int8			sql[256];
 
 	message->getStringUnicode16(moodStr);

@@ -29,6 +29,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include "CellObject.h"
 #include "Inventory.h"
 #include "FactoryObject.h"
+#include "BuildingObject.h"
 #include "PlayerObject.h"
 #include "MessageLib/MessageLib.h"
 #include "WorldManager.h"
@@ -46,7 +47,7 @@ ObjectContainer::ObjectContainer()
 //=============================================================================
 
 
-ObjectContainer::ObjectContainer(uint64 id,uint64 parentId,string model,ObjectType type) 
+ObjectContainer::ObjectContainer(uint64 id,uint64 parentId,BString model,ObjectType type) 
 				:Object(id,parentId,model,ObjType_Tangible)
 {
 	mCapacity = 0;	
@@ -161,7 +162,7 @@ bool ObjectContainer::addObjectSecure(Object* Data, PlayerObject* player)
 
 	if(!player)
 	{
-		gLogger->log(LogManager::DEBUG,"ObjectContainer::addObject No Capacity!!!!");
+		gLogger->log(LogManager::DEBUG,"ObjectContainer::addObject No player!!!!");
 		return addObjectSecure(Data);
 		
 	}
@@ -428,7 +429,7 @@ void ObjectContainer::handleObjectReady(Object* object,DispatchClient* client)
 	// find the main containing object
 	// thats an inventory, a cell or a factory - they are the object registered in the SI 
 	// and can tell us who we need to update
-	uint64 mainParent = getObjectMainParent(object);
+	uint64 mainParent = getIDMainParent(object);
 
 	if(!mainParent)
 	{
@@ -468,9 +469,116 @@ void ObjectContainer::handleObjectReady(Object* object,DispatchClient* client)
 //============================================================================================================
 // the idea is that the container holding our new item might be held by a container, too
 // should this happen, we need to find the main container to determin what kind of creates to send to our player/s
-// we will iterate through the parentObjects until the parent is either a player (item has been equipped) or in the inventory or )
+// we will iterate through the parentObjects until the parent is either a player (item has been equipped) or in the inventory,
 // or a cell or a factory
-uint64 ObjectContainer::getObjectMainParent(Object* object)
+// additionally the size of the inventory gets calculated by the size of its containers
+//
+Object* ObjectContainer::getObjectMainParent(Object* object)
+{
+
+	uint64 parentID = object->getParentId();
+
+	Object* ob = dynamic_cast<Object*>(gWorldManager->getObjectById(parentID));
+	if(!ob)
+	{
+		return 0;
+	}
+
+	//the object is equipped - the mainparent is the player
+	PlayerObject* player = dynamic_cast<PlayerObject*>(ob);
+	if(player)
+	{
+		return player;
+	}
+
+	//the object is in the inventory - the mainparent is the inventory - NO ITS THE PLAYER
+	//Inventory* inventory = dynamic_cast<Inventory*>(ob);
+	//if(inventory)
+	//{
+		//return inventory;
+	//}
+
+	//the object is in the cell - the mainparent is the structure
+	CellObject* cell = dynamic_cast<CellObject*>(ob);
+	if(cell)
+	{
+		BuildingObject* building = dynamic_cast<BuildingObject*>(gWorldManager->getObjectById(cell->getParentId()));
+		if(building)
+		{
+			return building;
+		}
+	}
+	
+	//the object is in the factory - the mainparent is the factory
+	FactoryObject* factory = dynamic_cast<FactoryObject*>(ob);
+	if(factory)
+	{
+		return factory;
+		
+	}
+	
+	BuildingObject* building = dynamic_cast<BuildingObject*>(ob);
+	if(building)
+	{
+		return  building;
+	}
+
+	return getObjectMainParent(ob);
+}
+
+uint64 ObjectContainer::getIDMainParent(Object* object)
+{
+
+	uint64 parentID = object->getParentId();
+
+	Object* ob = dynamic_cast<Object*>(gWorldManager->getObjectById(parentID));
+	if(!ob)
+	{
+		return 0;
+	}
+
+	//the object is equipped - the mainparent is the player
+	PlayerObject* player = dynamic_cast<PlayerObject*>(ob);
+	if(player)
+	{
+		return parentID;
+	}
+
+	//the object is in the inventory - the mainparent is the inventory
+	Inventory* inventory = dynamic_cast<Inventory*>(ob);
+	if(inventory)
+	{
+		return parentID;
+	}
+
+	//the object is in the cell - the mainparent is the structure
+	CellObject* cell = dynamic_cast<CellObject*>(ob);
+	if(cell)
+	{
+		return cell->getParentId();
+	}
+	
+	//the object is in the factory - the mainparent is the factory
+	FactoryObject* factory = dynamic_cast<FactoryObject*>(ob);
+	if(factory)
+	{
+		return parentID;
+		
+	}
+	
+	BuildingObject* building = dynamic_cast<BuildingObject*>(ob);
+	if(building)
+	{
+		return  parentID;
+	}
+
+	parentID = getIDMainParent(ob);
+
+	return parentID;
+}
+
+//deprecated
+/*uint64 ObjectContainer::getObjectMainParent2(Object* object)
 {
 
 	uint64 parentID = object->getParentId();
@@ -515,6 +623,7 @@ uint64 ObjectContainer::getObjectMainParent(Object* object)
 	{
 		//its in the inventory
 		return parentID;
+		//enum is INVENTORY_OFFSET
 		//Inventory is parent ID +1 - we cannot find inventories in the worldObjectMap but we can find players there
 		//so we have to go this way
 		//before changing this we need to settle the dispute what objects are part of the world objectmap and need to discuss objectownership
@@ -523,6 +632,7 @@ uint64 ObjectContainer::getObjectMainParent(Object* object)
 
 	return parentID;
 }
+*/
 
 //=============================================================================================
 // gets a headcount of all tangible (!!!) Objects in the container 
@@ -536,7 +646,8 @@ uint16 ObjectContainer::getHeadCount()
 	{
 		//do NOT count static tangibles like the playerStructureTerminal
 		TangibleObject* to = dynamic_cast<TangibleObject*>(gWorldManager->getObjectById(*it));
-		if(to && (!to->getStatic()))
+		//do not count static objects like the cellterminal!!!
+		if(to && (to != this) && (!to->getStatic()))
 		{
 		 	count += to->getHeadCount();
 			count += 1; //implememt items counting more than 1 at one time	
@@ -551,7 +662,7 @@ bool ObjectContainer::checkCapacity(uint8 amount, PlayerObject* player)
 	uint16 contentCount = getHeadCount();
 	if(player&&(mCapacity-contentCount < amount))
 	{
-		gMessageLib->sendSystemMessage(player,L"","container_error_message","container3");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("container_error_message", "container3"), player);
 	}
 
 	return((mCapacity-contentCount) >= amount);

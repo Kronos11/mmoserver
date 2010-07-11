@@ -274,7 +274,7 @@ bool MessageLib::sendBaselinesSCLT_6(CellObject* cellObject,PlayerObject* player
 //
 //
 
-bool MessageLib::sendEnterStructurePlacement(Object* deed, string objectString, PlayerObject* playerObject)
+bool MessageLib::sendEnterStructurePlacement(Object* deed, BString objectString, PlayerObject* playerObject)
 {
 	if(!(playerObject->isConnected()))
 		return(false);
@@ -284,8 +284,6 @@ bool MessageLib::sendEnterStructurePlacement(Object* deed, string objectString, 
 	mMessageFactory->StartMessage();
 	mMessageFactory->addUint32(opStructurePlacementMode);  
 	mMessageFactory->addUint64(deed->getId());
-	//object/building/player/shared_player_house_tatooine_large_style_01.iff
-	//char *dir = "object/installation/generators/shared_power_generator_fusion_style_1.iff";
 	mMessageFactory->addString(objectString);
 
 	newMessage = mMessageFactory->EndMessage();
@@ -312,7 +310,7 @@ bool MessageLib::sendAdminList(PlayerStructure* structure, PlayerObject* playerO
 	mMessageFactory->addUint32(opSendPermissionList);  
 	mMessageFactory->addUint32(structure->getStrucureAdminList().size() );
 
-	string name;
+	BString name;
 	BStringVector vector = 	structure->getStrucureAdminList();
 	BStringVector::iterator it = vector.begin();
 	while(it != vector.end())
@@ -356,7 +354,7 @@ bool MessageLib::sendEntryList(PlayerStructure* structure, PlayerObject* playerO
 	mMessageFactory->addUint32(opSendPermissionList);  
 	mMessageFactory->addUint32(structure->getStrucureEntryList().size() );
 
-	string name;
+	BString name;
 	BStringVector vector = 	structure->getStrucureEntryList();
 	BStringVector::iterator it = vector.begin();
 	while(it != vector.end())
@@ -401,7 +399,7 @@ bool MessageLib::sendBanList(PlayerStructure* structure, PlayerObject* playerObj
 	mMessageFactory->addUint32(opSendPermissionList);  
 	mMessageFactory->addUint32(structure->getStrucureBanList().size() );
 
-	string name;
+	BString name;
 	BStringVector vector = 	structure->getStrucureBanList();
 	BStringVector::iterator it = vector.begin();
 	while(it != vector.end())

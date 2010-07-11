@@ -100,6 +100,11 @@ class LoginManager : public NetworkCallback, public DatabaseCallback
 		void                    _sendServerStatus(LoginClient* client);
 		void                    _updateServerStatus(DatabaseResult* result);
 
+        //launcher functions
+        void                    _handleLauncherSession(LoginClient* client, Message* message);
+        void                    _getLauncherSessionKey(LoginClient* client, DatabaseResult* result);
+        void                    _sendLauncherSessionKey(LoginClient* client, DatabaseResult* result);
+
 
 		Database*	            mDatabase;
 		// Anh_Utils::Clock*       mClock;
@@ -109,6 +114,8 @@ class LoginManager : public NetworkCallback, public DatabaseCallback
 		bool                    mSendServerList;
 
 		uint32                  mLastStatusQuery;
+		uint32                  mLastHeartbeat;
+		uint32					mNumClientsProcessed;
 
 		boost::pool<boost::default_user_allocator_malloc_free>	mLoginClientPool;
 };

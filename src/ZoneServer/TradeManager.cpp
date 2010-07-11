@@ -62,23 +62,22 @@ TradeManager::TradeManager(Database* database, MessageDispatch* dispatch)
 	mMessageDispatch = dispatch;
 	TradeManagerAsyncContainer* asyncContainer;
 
-	mMessageDispatch->RegisterMessageCallback(opCreateAuctionMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opCreateImmediateAuctionMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opProcessSendCreateItem,this);
-	mMessageDispatch->RegisterMessageCallback(opAbortTradeMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opTradeCompleteMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opAddItemMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opRemoveItemMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opAcceptTransactionMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opBeginVerificationMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opVerifyTradeMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opUnacceptTransactionMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opGiveMoneyMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opDeductMoneyMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opFindFriendRequestPosition,this);
-	mMessageDispatch->RegisterMessageCallback(opFindFriendCreateWaypoint,this);
-
-	mMessageDispatch->RegisterMessageCallback(opBankTipDeduct,this);
+	mMessageDispatch->RegisterMessageCallback(opCreateAuctionMessage,std::bind(&TradeManager::_processHandleAuctionCreateMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opCreateImmediateAuctionMessage,std::bind(&TradeManager::_processHandleImmediateAuctionCreateMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opProcessSendCreateItem,std::bind(&TradeManager::_processCreateItemMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opAbortTradeMessage,std::bind(&TradeManager::_processAbortTradeMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opTradeCompleteMessage,std::bind(&TradeManager::_processTradeCompleteMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opAddItemMessage,std::bind(&TradeManager::_processAddItemMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opRemoveItemMessage,std::bind(&TradeManager::_processRemoveItemMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opAcceptTransactionMessage,std::bind(&TradeManager::_processAcceptTransactionMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opBeginVerificationMessage,std::bind(&TradeManager::_processBeginVerificationMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opVerifyTradeMessage,std::bind(&TradeManager::_processVerificationMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opUnacceptTransactionMessage,std::bind(&TradeManager::_processUnacceptTransactionMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opGiveMoneyMessage,std::bind(&TradeManager::_processGiveMoneyMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opDeductMoneyMessage,std::bind(&TradeManager::_processDeductMoneyMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opFindFriendRequestPosition,std::bind(&TradeManager::_processFindFriendRequestPositionMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opFindFriendCreateWaypoint,std::bind(&TradeManager::_processFindFriendCreateWaypointMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opBankTipDeduct,std::bind(&TradeManager::_processBanktipUpdate, this, std::placeholders::_1, std::placeholders::_2));
 
 	mErrorCount = 1;
 	mZoneId = gWorldManager->getZoneId();
@@ -136,124 +135,6 @@ void TradeManager::Shutdown()
 
 	mMessageDispatch->UnregisterMessageCallback(opBankTipDeduct);
 
-}
-
-//======================================================================================================================
-void TradeManager::handleDispatchMessage(uint32 opcode, Message* message, DispatchClient* client)
-{
-	switch(opcode)
-	{
-		case opBankTipDeduct:
-		{
-			_processBanktipUpdate(message,client);
-
-		}
-		break;
-		case opFindFriendCreateWaypoint:
-		{
-
-			_processFindFriendCreateWaypointMessage(message,client);
-
-		}
-		break;
-
-		case opFindFriendRequestPosition:
-		{
-			//opFindFriendSendPosition
-			_processFindFriendRequestPositionMessage(message,client);
-
-		}
-		break;
-
-		case opDeductMoneyMessage:
-		{
-			_processDeductMoneyMessage(message,client);
-		}
-		break;
-
-		case opProcessSendCreateItem:
-		{
-			//send by the chatserver when we try to get an item from the bazaar!
-			_processCreateItemMessage(message,client);
-		}
-		break;
-
-		case opCreateAuctionMessage:
-		{
-			_processHandleAuctionCreateMessage(message,client,TRMVendor_Auction);
-		}
-		break;
-
-		case opCreateImmediateAuctionMessage:
-		{
-			_processHandleAuctionCreateMessage(message,client,TRMVendor_Instant);
-
-		}
-		break;
-
-		case opAbortTradeMessage:
-		{
-			_processAbortTradeMessage(message,client);
-		}
-		break;
-
-		case opTradeCompleteMessage:
-		{
-			_processTradeCompleteMessage(message,client);
-		}
-		break;
-
-		case opAddItemMessage:
-		{
-			_processAddItemMessage(message,client);
-		}
-		break;
-
-		case opRemoveItemMessage:
-		{
-			_processRemoveItemMessage(message,client);
-		}
-		break;
-
-		case opAcceptTransactionMessage:
-		{
-			_processAcceptTransactionMessage(message,client);
-			//gLogger->log(LogManager::DEBUG,"TradeManager AcceptTransactionMessage");
-		}
-		break;
-
-		case opBeginVerificationMessage:
-		{
-			_processBeginVerificationMessage(message,client);
-			//gLogger->log(LogManager::DEBUG,"TradeManager BeginVerificationMessage");
-		}
-		break;
-
-		case opVerifyTradeMessage:
-		{
-			_processVerificationMessage(message,client);
-			//gLogger->log(LogManager::DEBUG,"TradeManager VerificationMessage");
-		}
-		break;
-
-		case opUnacceptTransactionMessage:
-		{
-			_processUnacceptTransactionMessage(message,client);
-			//gLogger->log(LogManager::DEBUG,"TradeManager UnacceptTransactionMessage");
-		}
-		break;
-
-		case opGiveMoneyMessage:
-		{
-			_processGiveMoneyMessage(message,client);
-			//gLogger->log(LogManager::DEBUG,"TradeManager GiveMoneyMessage");
-		}
-		break;
-
-		default:
-			gLogger->log(LogManager::DEBUG,"TradeManagerMessage::handleDispatchMessage: Unhandled opcode %u",opcode);
-		break;
-	}
 }
 
 //=======================================================================================================================
@@ -388,9 +269,9 @@ void TradeManager::handleDatabaseJobComplete(void* ref,DatabaseResult* result)
 			Transaction* mTransaction = mDatabase->startTransaction(this,asyncContainer);
 			int8 sql[200];
 
-			sprintf(sql,"UPDATE inventories SET credits=credits-%i WHERE id=%"PRIu64"",asyncContainer->amountcash, playerObject->getId()+1);
+			sprintf(sql,"UPDATE inventories SET credits=credits-%i WHERE id=%"PRIu64"",asyncContainer->amountcash, playerObject->getId()+INVENTORY_OFFSET);
 			mTransaction->addQuery(sql);
-			sprintf(sql,"UPDATE banks SET credits=credits-%i WHERE id=%"PRIu64"",asyncContainer->amountbank, playerObject->getId()+4);
+			sprintf(sql,"UPDATE banks SET credits=credits-%i WHERE id=%"PRIu64"",asyncContainer->amountbank, playerObject->getId()+BANK_OFFSET);
 			mTransaction->addQuery(sql);
 			int8 query[2000];
 			sprintf(query,"INSERT INTO commerce_auction SET auction_id = %"PRIu64", owner_id = %"PRIu64", bazaar_id = %"PRIu64", type = %u, start = %u ,premium = %u, category = 0, itemtype = %u, price = %u, name = '%s', description = '%s', region_id = 0, planet_id = 0, bidder_name = '', object_string = '%s'", asynContainer->tangible->getId(),playerObject->getId(),asynContainer->BazaarID,asynContainer->auctionType,asynContainer->time,asynContainer->premium,asynContainer->itemType,asynContainer->price, asynContainer->name.getAnsi(),asynContainer->description.getAnsi(),asynContainer->tang.getAnsi());
@@ -538,12 +419,12 @@ void TradeManager::_processFindFriendCreateWaypointMessage(Message* message,Disp
 {
 	uint64	playerId	= message->getUint64();//is on this zone
 
-	string	playerFriendName;
+	BString	playerFriendName;
 	message->getStringAnsi(playerFriendName);
 
-	uint32 planet = message->getUint32();//
-	float x = message->getFloat();//
-	float z = message->getFloat();//
+	uint32 planet = message->getUint32();
+	float x = message->getFloat();
+	float z = message->getFloat();
 
 	PlayerObject* playerObject = dynamic_cast<PlayerObject*>(gWorldManager->getObjectById(playerId));
 
@@ -556,12 +437,17 @@ void TradeManager::_processFindFriendCreateWaypointMessage(Message* message,Disp
 	WaypointObject* wp = datapad->getWaypointByName(playerFriendName);
 	if(wp)
 	{
-		datapad->removeWaypoint(wp->getId());
+		//update instead of deleting and re-creating...
+		
+		gMessageLib->sendUpdateWaypoint(wp, ObjectUpdateAdd, playerObject);
+		datapad->updateWaypoint(wp->getId(), playerFriendName.getAnsi(), position, static_cast<uint16>(planet), playerObject->getId(), WAYPOINT_ACTIVE);
 	}
-
-	if(datapad->getCapacity())
+	else
 	{
-		datapad->requestNewWaypoint(playerFriendName.getAnsi(),position,static_cast<uint16>(planet),Waypoint_blue);
+		if(datapad->getCapacity())
+		{
+			datapad->requestNewWaypoint(playerFriendName.getAnsi(),position,static_cast<uint16>(planet),Waypoint_blue);
+		}
 	}
 }
 
@@ -595,17 +481,17 @@ void TradeManager::_processDeductMoneyMessage(Message* message,DispatchClient* c
 	uint64	itemID		= message->getUint64();
 	int32	amount		= message->getUint32();
 	uint32	time		= message->getUint32();
-	string	name;
+	BString	name;
 	message->getStringAnsi(name);
-	string	planet;
+	BString	planet;
 	message->getStringAnsi(planet);
-	string	region;
+	BString	region;
 	message->getStringAnsi(region);
-	string	owner;
+	BString	owner;
 	message->getStringAnsi(owner);
-	string	x;
+	BString	x;
 	message->getStringAnsi(x);
-	string	y;
+	BString	y;
 	message->getStringAnsi(y);
 
 	TradeManagerAsyncContainer* asyncContainer;
@@ -636,11 +522,11 @@ void TradeManager::_processDeductMoneyMessage(Message* message,DispatchClient* c
 	//ok use transactions and see to the object in memory in the postransaction
 	Transaction* mTransaction = mDatabase->startTransaction(this,asyncContainer);
 	int8 sql[200];
-	sprintf(sql,"UPDATE inventories SET credits=credits-%i WHERE id=%"PRIu64"",asyncContainer->amountcash, buyerID+1);
+	sprintf(sql,"UPDATE inventories SET credits=credits-%i WHERE id=%"PRIu64"",asyncContainer->amountcash, buyerID+INVENTORY_OFFSET);
 	mTransaction->addQuery(sql);
-	sprintf(sql,"UPDATE banks SET credits=credits-%i WHERE id=%"PRIu64"",asyncContainer->amountbank, buyerID+4);
+	sprintf(sql,"UPDATE banks SET credits=credits-%i WHERE id=%"PRIu64"",asyncContainer->amountbank, buyerID+BANK_OFFSET);
 	mTransaction->addQuery(sql);
-	sprintf(sql,"UPDATE banks SET credits=credits+%i WHERE id=%"PRIu64"",amount, sellerID+4);
+	sprintf(sql,"UPDATE banks SET credits=credits+%i WHERE id=%"PRIu64"",amount, sellerID+BANK_OFFSET);
 	mTransaction->addQuery(sql);
 	//set owner id to new owner. the item will be taken out of the bazaar in the next step IF the buyer is near
 	sprintf(sql,"UPDATE commerce_auction SET owner_id = %"PRIu64", type = %u,start = %u WHERE auction_id = %"PRIu64"",buyerID,TRMVendor_Cancelled,time,itemID);
@@ -670,7 +556,17 @@ void TradeManager::_processCreateItemMessage(Message* message,DispatchClient* cl
 
 //=======================================================================================================================
 
-void TradeManager::_processHandleAuctionCreateMessage(Message* message,DispatchClient* client, TRMAuctionType auction)
+void TradeManager::_processHandleAuctionCreateMessage(Message* message,DispatchClient* client)
+{
+	_HandleAuctionCreateMessage(message,client, TRMVendor_Auction);
+}
+
+void TradeManager::_processHandleImmediateAuctionCreateMessage(Message* message,DispatchClient* client)
+{
+	_HandleAuctionCreateMessage(message, client, TRMVendor_Instant);
+}
+
+void TradeManager::_HandleAuctionCreateMessage(Message* message,DispatchClient* client, TRMAuctionType auction)
 {
 	TradeManagerAsyncContainer* asyncContainer;
 
@@ -678,7 +574,7 @@ void TradeManager::_processHandleAuctionCreateMessage(Message* message,DispatchC
 	Inventory*		inventory		= dynamic_cast<Inventory*>(playerObject->getEquipManager()->getEquippedObject(CreatureEquipSlot_Inventory));
 	
 	//the items description we provide
-	string			Description;
+	BString			Description;
 
 	//squeeze our Packet for all usefull information
 	uint64	ItemID		= message->getUint64();
@@ -742,7 +638,7 @@ void TradeManager::_processHandleAuctionCreateMessage(Message* message,DispatchC
 	//just initialize some things in case we get something which is not a tano
 	uint32 category = requestedObject->getCategoryBazaar();
 
-	string name, customName, tang;
+	BString name, customName, tang;
 
 	uint32 itemType = 0;
 
@@ -989,11 +885,14 @@ void TradeManager::_processVerificationMessage(Message* message,DispatchClient* 
 	{
 		playerObject->getTrade()->setTradeFinishedStatus(true);
 
-		if(tradePartner->getTrade()->getTradeFinishedStatus())
-		{
-			playerObject->getTrade()->setTradeFinishedStatus(false);
-			tradePartner->getTrade()->setTradeFinishedStatus(false);
-			_processTradeCompleteMessage(message,client);
+		//make sure 'partner' is still set to be trading...not sure how this would fail but it CAN: http://paste.swganh.org/viewp.php?id=20100627222833-5bae6fb86eda66de328ca73fb1aae6eb
+		if(tradePartner->getTradeStatus()){
+			if(tradePartner->getTrade()->getTradeFinishedStatus())
+			{
+				playerObject->getTrade()->setTradeFinishedStatus(false);
+				tradePartner->getTrade()->setTradeFinishedStatus(false);
+				_processTradeCompleteMessage(message,client);
+			}
 		}
 	}
 }

@@ -54,8 +54,8 @@ class CraftingSession;
 class Datapad;
 //=============================================================================
 
-typedef std::list<std::pair<string,float> >	AttributesList;
-typedef std::list<std::pair<string,uint16> >	ColorList;
+typedef std::list<std::pair<BString,float> >	AttributesList;
+typedef std::list<std::pair<BString,uint16> >	ColorList;
 typedef std::list<std::pair<uint32,int32> >	XPList;
 typedef std::list<std::pair<uint32,int32> >	XPCapList;
 typedef std::vector<uint64>						SchematicsIdList;
@@ -68,16 +68,6 @@ typedef std::list<uint32>						BadgesList;
 typedef std::list<uint32>						UIWindowList;
 typedef std::map<uint32,BString>				ContactMap;
 
-//=============================================================================
-enum PlayerOffSet{
-	INVENTORY_OFFSET	= 1,
-	MISSION_OFFSET		= 2,
-	DATAPAD_OFFSET		= 3,
-	BANK_OFFSET			= 4,
-	WEAPON_OFFSET		= 5,
-	HAIR_OFFSET			= 8
-
-};
 //======================================================================================================================
 class PlayerObject : public CreatureObject
 {
@@ -111,8 +101,11 @@ class PlayerObject : public CreatureObject
 		uint32				getClientTickCount(){ return mClientTickCount; }
 		void				setClientTickCount(uint32 tickCount){ mClientTickCount = tickCount; }
 
-		string				getTitle() const { return mTitle; }
-		void				setTitle(const string title){ mTitle = title; }
+		uint32				getSaveTimer(){return mPlayerSaveTimer;}
+		void				setSaveTimer(uint32 saveTimer){mPlayerSaveTimer = saveTimer;}
+
+		BString				getTitle() const { return mTitle; }
+		void				setTitle(const BString title){ mTitle = title; }
 
 		uint64				getPlayerObjId(){ return mPlayerObjId; }
 		void				setPlayerObjId(uint64 id){ mPlayerObjId = id; }
@@ -190,11 +183,11 @@ class PlayerObject : public CreatureObject
 		bool				checkBadges(uint32 badgeId);
 		void				addBadge(uint32 badgeId);
 
-		void				setBiography(const string bio){ mBiography = bio; }
-		string				getBiography(){ return mBiography; }
+		void				setBiography(const BString bio){ mBiography = bio; }
+		BString				getBiography(){ return mBiography; }
 
-		void				setMarriage(const string marriage){ mMarriage = marriage; }
-		string				getMarriage(){ return mMarriage; }
+		void				setMarriage(const BString marriage){ mMarriage = marriage; }
+		BString				getMarriage(){ return mMarriage; }
 
 		uint32				getBornyear(){ return mBornyear; }
 		void				setBornyear(uint32 bornyear){ mBornyear = bornyear; }
@@ -212,21 +205,22 @@ class PlayerObject : public CreatureObject
 		void				setHomeCoords(const glm::vec3& coords){ mHomeCoords = coords; }
 
 		// UI Windows
-		void				handleUIEvent(uint32 action,int32 element,string inputStr,UIWindow* window);
+		void				handleUIEvent(uint32 action,int32 element,BString inputStr,UIWindow* window);
 		UIWindowList*		getUIWindowList(){ return &mUIWindowList; }
 		void				addUIWindow(uint32 id){ mUIWindowList.push_back(id); }
 		bool				removeUIWindow(uint32 id);
 		void				clearAllUIWindows();
 		void				resetUICallbacks(Object* object);
-		bool				checkUIWindow(string text);
+		//checks whether we have a certain window already open
+		bool				checkUIWindow(BString text);
 
 		ContactMap*			getFriendsList(){ return &mFriendsList; }
-		void				addFriend(string name){ mFriendsList.insert(std::make_pair(name.getCrc(),name.getAnsi())); }
+		void				addFriend(BString name){ mFriendsList.insert(std::make_pair(name.getCrc(),name.getAnsi())); }
 		bool				removeFriend(uint32 nameCrc);
 		bool				checkFriendList(uint32 nameCrc);
 
 		ContactMap*			getIgnoreList(){ return &mIgnoreList; }
-		void				addIgnore(string name){ mIgnoreList.insert(std::make_pair(name.getCrc(),name.getAnsi())); }
+		void				addIgnore(BString name){ mIgnoreList.insert(std::make_pair(name.getCrc(),name.getAnsi())); }
 
 		bool				removeIgnore(uint32 nameCrc);
 		bool				checkIgnoreList(uint32 nameCrc) const;
@@ -416,7 +410,6 @@ class PlayerObject : public CreatureObject
 
 		bool				getAcceptBandFlourishes() {return mAcceptsBandFlourishes;}
 		void				setAcceptBandFlourishes(bool b) { mAcceptsBandFlourishes = b;}
-
 	private:
 
 		void				_verifyBadges();
@@ -442,9 +435,9 @@ class PlayerObject : public CreatureObject
 		ContactMap			mFriendsList;
 		ContactMap 			mIgnoreList;
 
-		string				mBiography;
-		string				mMarriage;
-		string				mTitle;
+		BString				mBiography;
+		BString				mMarriage;
+		BString				mTitle;
 
 		glm::vec3 mBindCoords;
 		glm::vec3 mHomeCoords;
@@ -523,6 +516,7 @@ class PlayerObject : public CreatureObject
 		bool				mIsForaging;
 
 		int					mPreviousHarvestingSelection;
+		uint32              mPlayerSaveTimer;
 };
 
 

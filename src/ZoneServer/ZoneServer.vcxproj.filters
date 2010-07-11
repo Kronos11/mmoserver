@@ -440,9 +440,6 @@
     <ClCompile Include="OCGroupHandlers.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="OCHeightmapCallback.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="OCMarksmanHandlers.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -552,9 +549,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="RadialMenuItem.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="RegionFactory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="RegionObject.cpp">
@@ -753,6 +747,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="VehicleControllerFactory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SendSystemMailMessage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="RegionFactory.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -1463,6 +1463,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="OCStructureHandlers.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SendSystemMailMessage.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SocialChatTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MoodTypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

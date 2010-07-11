@@ -67,14 +67,15 @@ class ZoneServer
 
 		void	handleWMReady();
 
-		string  getZoneName()  { return mZoneName; }
+		BString  getZoneName()  { return mZoneName; }
 
 	private:
 
 		void	_updateDBServerList(uint32 status);
 		void	_connectToConnectionServer(void);
 
-		string                        mZoneName;
+		BString                        mZoneName;
+		uint32						  mLastHeartbeat;
 
 		NetworkManager*               mNetworkManager;
 		DatabaseManager*              mDatabaseManager;

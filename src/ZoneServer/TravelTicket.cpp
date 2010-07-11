@@ -62,7 +62,7 @@ TravelTicket::~TravelTicket()
 
 //=============================================================================
 
-string TravelTicket::getBazaarName()
+BString TravelTicket::getBazaarName()
 {
 	int8	ticketStr[256];
 
@@ -70,7 +70,7 @@ string TravelTicket::getBazaarName()
 		,((getAttribute<std::string>("travel_departure_planet")).c_str())
 		,((getAttribute<std::string>("travel_arrival_planet")).c_str()));
 
-	string value = ticketStr;
+	BString value = ticketStr;
 	
 	return value;
 }
@@ -85,7 +85,7 @@ void TravelTicket::handleObjectMenuSelect(uint8 messageType,Object* srcObject)
 
 		if(player->getPosture() == CreaturePosture_SkillAnimating)
 		{
-			gMessageLib->sendSystemMessage(player,L"","error_message","wrong_state");
+            gMessageLib->SendSystemMessage(::common::OutOfBand("error_message", "wrong_state"), player);
 			return;
 		}
 
@@ -110,7 +110,7 @@ void TravelTicket::handleObjectMenuSelect(uint8 messageType,Object* srcObject)
 			++objIt;
 		}
 	
-		gMessageLib->sendSystemMessage(player,L"There is no shuttle nearby");
+		gMessageLib->SendSystemMessage(L"There is no shuttle nearby", player);
 	}
 }
 

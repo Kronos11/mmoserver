@@ -264,7 +264,7 @@ void ObjectController::handleDataTransform(Message* message,bool inRangeUpdate)
 		if (!gWorldManager->objectsInRange(player->getId(), (ac->getNpc())->getId(), 11.0))
 		{
 			// Terminate conversation, since we are out of range.
-			gMessageLib->sendSystemMessage(player,L"","system_msg","out_of_range");
+            gMessageLib->SendSystemMessage(::common::OutOfBand("system_msg", "out_of_range"), player);
 			gConversationManager->stopConversation(player, true);			// We will get the current dialog text in a chat bubble, only seen by me. Impressive :)
 		}
 	}
@@ -464,7 +464,7 @@ void ObjectController::handleDataTransformWithParent(Message* message,bool inRan
 			if (!gWorldManager->objectsInRange(player->getId(), (ac->getNpc())->getId(), 11.0))
 			{
 				// Terminate conversation, since we are out of range.
-				gMessageLib->sendSystemMessage(player,L"","system_msg","out_of_range");
+                gMessageLib->SendSystemMessage(::common::OutOfBand("system_msg", "out_of_range"), player);
 				gConversationManager->stopConversation(player, true);			// We will get the current dialog text in a chat bubble, only seen by me. Impressive :)
 			}
 		}
@@ -849,9 +849,9 @@ bool ObjectController::_destroyOutOfRangeObjects(ObjectSet *inRangeObjects)
 	// iterate our knowns
 	PlayerObject*				player			= dynamic_cast<PlayerObject*>(mObject);
 	ObjectSet*					knownObjects	= player->getKnownObjects();
-	ObjectSet::iterator			objIt			= knownObjects->begin();
+	ObjectSet::const_iterator			objIt			= knownObjects->begin();
 	PlayerObjectSet*			knownPlayers	= player->getKnownPlayers();
-	PlayerObjectSet::iterator	playerIt		= knownPlayers->begin();
+	PlayerObjectSet::const_iterator	playerIt		= knownPlayers->begin();
 
 	const uint32 objectDestroyLimit = 5000;
 
@@ -912,6 +912,7 @@ bool ObjectController::_destroyOutOfRangeObjects(ObjectSet *inRangeObjects)
 
 			if(object->getType() == ObjType_Structure)
 			{
+				/*
 				if(FactoryObject* factory = dynamic_cast<FactoryObject*>(object))
 				{
 					//delete the hoppers contents
@@ -967,8 +968,8 @@ bool ObjectController::_destroyOutOfRangeObjects(ObjectSet *inRangeObjects)
 							player->removeKnownObject(hopper);
 							gMessageLib->sendDestroyObject(hopper->getId(),player);					
 					}
-
-				}
+					
+				}*/
 			}
 			// send a destroy to us
 			gMessageLib->sendDestroyObject(object->getId(),player);

@@ -84,7 +84,7 @@ void Deed::handleObjectMenuSelect(uint8 messageType,Object* srcObject)
 					}
 					else
 					{
-						gMessageLib->sendSystemMessage(player,L"Error datapad at max capacity. Couldn't create the vehicle.");
+						gMessageLib->SendSystemMessage(L"Error datapad at max capacity. Couldn't create the vehicle.", player);
 					}
 				}
 				else
@@ -98,16 +98,15 @@ void Deed::handleObjectMenuSelect(uint8 messageType,Object* srcObject)
 						{
 							if(!player->checkSkill(623)) // Must be a novice Politician
 							{
-								gMessageLib->sendSystemMessage(player,L"","player_structure","place_cityhall");
+                                gMessageLib->SendSystemMessage(::common::OutOfBand("player_structure", "place_cityhall"), player);
 								return;
 							}
 						}
 					}
 
 					//check the region whether were allowed to build
-					if(!gStructureManager->checkCityRadius(player))
+					if(gStructureManager->checkNoBuildRegion(player))
 					{
-						gMessageLib->sendSystemMessage(player,L"","faction_perk","no_build_area");
 						return;
 					}
 
@@ -119,14 +118,14 @@ void Deed::handleObjectMenuSelect(uint8 messageType,Object* srcObject)
 					}
 					if(player->getParentId())
 					{
-						gMessageLib->sendSystemMessage(player,L"","player_structure","not_inside");
+                        gMessageLib->SendSystemMessage(::common::OutOfBand("player_structure", "not_inside"), player);
 						return;
 					}
 
 					//check available Lots and remove ... grml
 					if(!player->useLots(data->requiredLots))
 					{
-						gMessageLib->sendSystemMessage(player, L"","player_structure","not_enough_lots","","",L"",data->requiredLots);
+                        gMessageLib->SendSystemMessage(::common::OutOfBand("player_structure", "not_enough_lots", 0, 0, 0, data->requiredLots, 0.0f), player);
 						return;
 					}
 
@@ -149,7 +148,7 @@ void Deed::handleObjectMenuSelect(uint8 messageType,Object* srcObject)
 						//or just the house type isnt permitted here
 						//wrong_planet 
 						//not_permitted
-						gMessageLib->sendSystemMessage(player, L"","player_structure","wrong_planet","","",L"",data->requiredLots);
+                        gMessageLib->SendSystemMessage(::common::OutOfBand("player_structure", "wrong_planet", 0, 0, 0, data->requiredLots, 0.0f), player);
 						gStructureManager->UpdateCharacterLots(player->getId());
 						return;
 					}
@@ -179,8 +178,8 @@ void Deed::sendAttributes(PlayerObject* playerObject)
 
 	gMessageFactory->addUint32(1 + mAttributeMap.size());
 
-	string	tmpValueStr = string(BSTRType_Unicode16,64);
-	string	value;
+	BString	tmpValueStr = BString(BSTRType_Unicode16,64);
+	BString	value;
 
 	tmpValueStr.setLength(swprintf(tmpValueStr.getUnicode16(),50,L"%u/%u",mMaxCondition - mDamage,mMaxCondition));
 

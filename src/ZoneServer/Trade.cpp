@@ -215,7 +215,7 @@ bool Trade::checkTradeListtoInventory()
 
 	if(!inventory->checkSlots(mItemTradeList.size()))
 	{
-		gMessageLib->sendSystemMessage(getPlayerObject(),L"","error_message","inv_full");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("error_message", "inv_full"), getPlayerObject());
 		return false;
 	}
 
@@ -303,14 +303,9 @@ void  Trade::processTradeListPostTransaction()
 		//the item could be in a backpack or in a different container - get it out
 		TangibleObject* container = dynamic_cast<TangibleObject*>(gWorldManager->getObjectById((*it)->getObject()->getParentId()));
 		
-		if(!container)
-		{
-			//please note, that the worldmanagers ObjectList does not contain inventories.
-			//equipped items should be unequipped by this time
-			container = inventory;
-		}
-		
 		container->deleteObject((*it)->getObject());
+
+		(*it)->getObject()->setParentId(partnerInventory->getId());
 
 		//create in our tradepartners Inventory
 		if((*it)->getNewOwner() && (*it)->getNewOwner()->isConnected())

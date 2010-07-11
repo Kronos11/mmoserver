@@ -32,6 +32,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include "BuildingObject.h"
 #include "CharSheetManager.h"
 #include "Container.h"
+#include "Datapad.h"
 #include "FillerNPC.h"
 #include "Inventory.h"
 #include "NonPersistentNpcFactory.h"
@@ -46,6 +47,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include "UIPlayerSelectBox.h"
 #include "WorldConfig.h"
 #include "WorldManager.h"
+#include "WaypointObject.h"
+#include "SendSystemMailMessage.h"
+#include "SocialChatTypes.h"
 
 #include "Utils/EventHandler.h"
 #include "MessageLib/MessageLib.h"
@@ -55,10 +59,26 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include "DatabaseManager/DatabaseResult.h"
 #include "DatabaseManager/DataBinding.h"
 #include "Common/atMacroString.h"
+#include "ChatServer/Mail.h"
+#include "ChatServer/ChatOpcodes.h"
 
+#ifdef _MSC_VER
+#include <regex>  // NOLINT
+#else
+#include <boost/regex.hpp>  // NOLINT
+#endif
+
+#ifdef WIN32
+using ::std::wregex;
+using ::std::wsmatch;
+using ::std::regex_search;
+#else
+using ::boost::wregex;
+using ::boost::wsmatch;
+using ::boost::regex_search;
+#endif
 
 #include "utils/rand.h"
-
 
 class TutorialQueryContainer
 {
@@ -141,7 +161,7 @@ Tutorial::~Tutorial()
 	}
 }
 
-void Tutorial::warpToStartingLocation(string startingLocation)
+void Tutorial::warpToStartingLocation(BString startingLocation)
 {
 	gLogger->log(LogManager::DEBUG,"Tutorial::warpToStartingLocation: Starting city = %s", startingLocation.getAnsi());
 
@@ -150,7 +170,6 @@ void Tutorial::warpToStartingLocation(string startingLocation)
 	asContainer->mId = mPlayerObject->getId(); 
 
 	(gWorldManager->getDatabase())->ExecuteSqlAsync(this,asContainer,"SELECT planet_id, x, y, z FROM starting_location WHERE location LIKE '%s'", startingLocation.getAnsi());	
-
 }
 
 void Tutorial::handleDatabaseJobComplete(void* ref,DatabaseResult* result)
@@ -212,6 +231,24 @@ void Tutorial::handleDatabaseJobComplete(void* ref,DatabaseResult* result)
 				gMessageLib->sendClusterZoneTransferRequestByPosition(player, 
                     glm::vec3(startingLocation.destX, startingLocation.destY, startingLocation.destZ), 
 																	  startingLocation.destinationPlanet);
+					
+				// create waypoint at starting location.
+				glm::vec3 position;
+				position.x = startingLocation.destX;
+				position.z = startingLocation.destZ;
+
+				Datapad* datapad = player->getDataPad();
+
+				WaypointObject* wp = datapad->getWaypointByName("@ui:cpt_avatar_location");
+				if(wp)
+				{
+					datapad->removeWaypoint(wp->getId());
+				}
+
+				datapad->requestNewWaypoint("@ui:cpt_avatar_location", position, startingLocation.destinationPlanet, Waypoint_blue);
+				
+				//send starting emails
+				sendStartingMails();
 			}
 			else
 			{
@@ -259,8 +296,8 @@ void Tutorial::scriptSystemMessage(std::string message)
 {
 	if (mPlayerObject && mPlayerObject->isConnected())
 	{
-    std::wstring msg(message.begin(), message.end());
-		gMessageLib->sendSystemMessage(mPlayerObject, msg);
+        std::wstring msg(message.begin(), message.end());
+        gMessageLib->SendSystemMessage(msg, mPlayerObject);
 	}
 }
 
@@ -344,7 +381,7 @@ void Tutorial::disableHudElement(std::string customMessage)
 //
 //
 
-void Tutorial::tutorialResponse(string tutorialEventString)
+void Tutorial::tutorialResponse(BString tutorialEventString)
 {
 	if (strcmp(tutorialEventString.getAnsi(), "zoomCamera") == 0)
 	{
@@ -392,7 +429,7 @@ void Tutorial::tutorialResponse(string tutorialEventString)
 //
 //
 
-void Tutorial::tutorialResponseReset(string tutorialEventString)
+void Tutorial::tutorialResponseReset(BString tutorialEventString)
 {
 	if (strcmp(tutorialEventString.getAnsi(), "zoomCamera") == 0)
 	{
@@ -610,26 +647,25 @@ void Tutorial::spatialChat(uint64 targetId, std::string chatMsg)
 	NPCObject* npc = dynamic_cast<NPCObject*>(gWorldManager->getObjectById(targetId));
 	if (mPlayerObject && mPlayerObject->isConnected() && npc)
 	{
-		string msg = (int8*)chatMsg.c_str();
-		msg.convert(BSTRType_Unicode16);
-		char quack[5][32];
-		memset(quack, 0, sizeof(quack));
-		gMessageLib->sendSpatialChat(npc, msg, quack, mPlayerObject);
+        std::wstring message(chatMsg.begin(), chatMsg.end());
+        gMessageLib->SendSpatialChat(npc, message, mPlayerObject, 0);
 	}
 }
+
+/*
+
+*/
 
 void Tutorial::spatialChatShout(uint64 targetId, std::string chatMsg)
 {
 	NPCObject* npc = dynamic_cast<NPCObject*>(gWorldManager->getObjectById(targetId));
 	if (mPlayerObject && mPlayerObject->isConnected() && npc)
-	{
-		string msg = (int8*)chatMsg.c_str();
-		msg.convert(BSTRType_Unicode16);
-		char quack[5][32];
-		memset(quack, 0, sizeof(quack));
-		quack[1][0] = '8';
-		quack[1][1] = '0';
-		gMessageLib->sendSpatialChat(npc, msg, quack, mPlayerObject);
+	{        
+        std::wstring message(chatMsg.begin(), chatMsg.end());
+
+        // 80 is shout
+        // @todo: need an enum of all potential chat types
+        gMessageLib->SendSpatialChat(npc, message, mPlayerObject, 0, 0x32, kSocialChatShout);
 	}
 }
 
@@ -905,7 +941,7 @@ static const uint64 MarksmanTrainerId[3] = {47244640339, 47244640363, 4724464045
 static const uint64 ScoutTrainerId[3] = {47244640311, 47244640461, 47244640525};
 */
 
-uint64 Tutorial::getSkillTrainerTypeId(string startingProfession)
+uint64 Tutorial::getSkillTrainerTypeId(BString startingProfession)
 {
 	uint64 typeId = 0;
 	uint8 index = (uint8)(gRandom->getRand() % 3);
@@ -962,11 +998,11 @@ void Tutorial::setTutorialRefugeeTaunts(uint64 npcId)
 	{
 		npc->setupTutorialTaunts(mPlayerObject->getId(),
 								 120000,
-								 "They're going to ship us off to the spice mines of Kessel.",
-								 "The Emperor has disbanded the Senate, now the Empire can do whatever it wants.",
-								 "But we're innocent!  We weren't carrying any contraband.  They attacked us for no reason.",
-								 "I never should have left Alderaan... Oh, wait...",
-								 "I told you we couldn't outrun an Imperial Star Destroyer.");
+								 "@newbie_tutorial/newbie_convo:refugee1",
+								 "@newbie_tutorial/newbie_convo:refugee2",
+								 "@newbie_tutorial/newbie_convo:refugee3",
+								 "@newbie_tutorial/newbie_convo:refugee4",
+								 "@newbie_tutorial/newbie_convo:refugee5");
 	}
 }
 
@@ -978,11 +1014,11 @@ void Tutorial::setTutorialCelebTaunts(uint64 npcId)
 	{
 		npc->setupTutorialTaunts(mPlayerObject->getId(),
 								 90000,
-								 "I can't believe that crazy pirate is dead.",
-								 "That must have been a tough battle.",
-								 "I'm sure glad that's over with.",
-								 "Good thing someone came along to kill that pirate.  We'd have been trapped in here forever.",
-								 "I hate pirates.");
+								 "@newbie_tutorial/newbie_convo:celeb_guy1",
+								 "@newbie_tutorial/newbie_convo:celeb_guy2",
+								 "@newbie_tutorial/newbie_convo:celeb_guy3",
+								 "@newbie_tutorial/newbie_convo:celeb_guy4",
+								 "@newbie_tutorial/newbie_convo:celeb_guy5");
 	}
 }
 
@@ -1028,4 +1064,58 @@ void Tutorial::sendStartingLocationList(void)
 	// "Select your destination by clicking on one of the planets on the screen.  When you have selected the planet, select which city you wish to travel to by clicking on the picture to the right of the screen.  When you are ready to travel to the city, click on the arrow in the lower right-hand corner of the screen."
 	this->scriptSystemMessage("@newbie_tutorial/system_messages:select_dest");
 
+}
+
+void Tutorial::sendStartingMails(void)
+{
+	BString startingProfession = mStartingProfession;
+	BString subject = "@newbie_tutorial/newbie_mail:welcome_subject";
+	BString bodyDir = "newbie_tutorial/newbie_mail";
+	BString bodyStr = "welcome_body";
+
+	//sends the starting email
+	SendSystemMailMessage* message = new SendSystemMailMessage();
+	message->SendNewbieMailMessage(mPlayerObject, subject, bodyDir, bodyStr);
+
+	if (strcmp(startingProfession.getAnsi(), "crafting_artisan") == 0)
+	{
+		subject = "@newbie_tutorial/newbie_mail:crafting_artisan_subject";
+		bodyDir = "newbie_tutorial/newbie_mail";
+		bodyStr = "crafting_artisan_body";
+	}
+	else if (strcmp(startingProfession.getAnsi(), "combat_brawler") == 0)
+	{
+		subject = "@newbie_tutorial/newbie_mail:combat_brawler_subject";
+		bodyDir = "newbie_tutorial/newbie_mail";
+		bodyStr = "combat_brawler_body";
+	}
+	else if (strcmp(startingProfession.getAnsi(), "social_entertainer") == 0)
+	{
+		subject = "@newbie_tutorial/newbie_mail:social_entertainer_subject";
+		bodyDir = "newbie_tutorial/newbie_mail";
+		bodyStr = "social_entertainer_body";
+	}
+	else if (strcmp(startingProfession.getAnsi(), "combat_marksman") == 0)
+	{
+		subject = "@newbie_tutorial/newbie_mail:combat_marksman_subject";
+		bodyDir = "newbie_tutorial/newbie_mail";
+		bodyStr = "combat_marksman_body";
+
+	}
+	else if (strcmp(startingProfession.getAnsi(), "science_medic") == 0)
+	{
+		subject = "@newbie_tutorial/newbie_mail:science_medic_subject";
+		bodyDir = "newbie_tutorial/newbie_mail";
+		bodyStr = "science_medic_body";
+	}
+	else if (strcmp(startingProfession.getAnsi(), "outdoors_scout") == 0)
+	{
+		subject = "@newbie_tutorial/newbie_mail:outdoors_scout_subject";
+		bodyDir = "newbie_tutorial/newbie_mail";
+		bodyStr = "outdoors_scout_body";
+	}
+	//sends the starting profession email
+	message->SendNewbieMailMessage(mPlayerObject, subject, bodyDir, bodyStr);
+	message = NULL;
+	delete message;
 }

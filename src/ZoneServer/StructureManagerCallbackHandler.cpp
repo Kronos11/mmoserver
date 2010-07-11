@@ -37,6 +37,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include "PlayerObject.h"
 #include "PlayerStructure.h"
 #include "WorldManager.h"
+
+#include "Common/OutOfBand.h"
 #include "MessageLib/MessageLib.h"
 
 #include "LogManager/LogManager.h"
@@ -44,8 +46,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #include "DatabaseManager/DatabaseResult.h"
 #include "DatabaseManager/DataBinding.h"
 
-
-
+using ::common::OutOfBand;
 
 //=======================================================================================================================
 //handles callbacks of db creation of items
@@ -95,7 +96,7 @@ void StructureManager::_HandleQueryHopperPermissionData(StructureManagerAsyncCon
 
 	PlayerStructure* structure = dynamic_cast<PlayerStructure*>(gWorldManager->getObjectById(asynContainer->mStructureId));
 
-	string playerName;
+	BString playerName;
 	DataBinding* binding = gWorldManager->getDatabase()->CreateDataBinding(1);
 	binding->addField(DFT_bstring,0,64);
 
@@ -125,7 +126,7 @@ void StructureManager::_HandleQueryAdminPermissionData(StructureManagerAsyncCont
 {
 	PlayerStructure* structure = dynamic_cast<PlayerStructure*>(gWorldManager->getObjectById(asynContainer->mStructureId));
 
-	string playerName;
+	BString playerName;
 	DataBinding* binding = mDatabase->CreateDataBinding(1);
 	binding->addField(DFT_bstring,0,64);
 
@@ -156,7 +157,7 @@ void StructureManager::_HandleQueryEntryPermissionData(StructureManagerAsyncCont
 
 	PlayerStructure* structure = dynamic_cast<PlayerStructure*>(gWorldManager->getObjectById(asynContainer->mStructureId));
 
-	string playerName;
+	BString playerName;
 	DataBinding* binding = mDatabase->CreateDataBinding(1);
 	binding->addField(DFT_bstring,0,64);
 
@@ -187,7 +188,7 @@ void StructureManager::_HandleQueryBanPermissionData(StructureManagerAsyncContai
 {
 	PlayerStructure* structure = dynamic_cast<PlayerStructure*>(gWorldManager->getObjectById(asynContainer->mStructureId));
 
-	string playerName;
+	BString playerName;
 	DataBinding* binding = mDatabase->CreateDataBinding(1);
 	binding->addField(DFT_bstring,0,64);
 
@@ -256,7 +257,17 @@ void StructureManager::_HandleUpdateCharacterLots(StructureManagerAsyncContainer
 void StructureManager::_HandleStructureRedeedCallBack(StructureManagerAsyncContainer* asynContainer,DatabaseResult* result)
 {
 	PlayerStructure* structure = dynamic_cast<PlayerStructure*>(gWorldManager->getObjectById(asynContainer->mStructureId));
-
+	//ensure we actually got this from the DB
+	//Crashbug patch: http://paste.swganh.org/viewp.php?id=20100627034539-8f68cacfcb354eab467bcae7158eff8c
+	if(!structure)
+	{
+		gLogger->log(LogManager::CRITICAL,"StructureManager::_HandleStructureRedeedCallBack failed to retrieve valid structure(%u) from DB. Possible connection issues.", asynContainer->mStructureId);
+		PlayerObject* player = dynamic_cast<PlayerObject*>(gWorldManager->getObjectById(asynContainer->mPlayerId));
+        if (player) {
+		    gMessageLib->SendSystemMessage(L"(We couldn't find it in the DB, please /bug report this so we can investigate.)", player);
+        }
+		return;
+	}
 	//if its a playerstructure boot all players and pets inside
 	HouseObject* house = dynamic_cast<HouseObject*>(structure);
 	if(house)
@@ -300,7 +311,8 @@ void StructureManager::_HandleStructureRedeedCallBack(StructureManagerAsyncConta
 	if(deedId == 1)
 	{
 		gLogger->log(LogManager::DEBUG,"StructureManager::create deed with not enough maintenance...");
-		gMessageLib->sendSysMsg(player, "player_structure","structure_destroyed ");	
+		if(player)
+			gMessageLib->SendSystemMessage(OutOfBand("player_structure", "structure_destroyed"), player);	
 		mDatabase->DestroyDataBinding(binding);
 		return;
 	}
@@ -315,8 +327,6 @@ void StructureManager::_HandleStructureRedeedCallBack(StructureManagerAsyncConta
 			gObjectFactory->createIteminInventory(inventory,deedId,TanGroup_Item);
 		}
 	}
-
-	UpdateCharacterLots(asynContainer->mPlayerId);
 
 	mDatabase->DestroyDataBinding(binding);
 }
@@ -466,11 +476,11 @@ void StructureManager::_HandleStructureTransferLotsRecipient(StructureManagerAsy
 
 		if(donor)
 		{
-			gMessageLib->sendSystemMessage(donor,L"","player_structure","ownership_transferred_out","",asynContainer->name);
+            gMessageLib->SendSystemMessage(::common::OutOfBand("player_structure", "ownership_transferred_out", "", "", "", "", "", asynContainer->name), donor);
 		}
 		if(recipient)
 		{
-			gMessageLib->sendSystemMessage(recipient,L"","player_structure","ownership_transferred_in","",donor->getFirstName().getAnsi());
+            gMessageLib->SendSystemMessage(::common::OutOfBand("player_structure", "ownership_transferred_in", "", "", "", "", "", donor->getFirstName().getAnsi()), recipient);
 		}
 		
 
@@ -552,10 +562,10 @@ void StructureManager::_HandleRemovePermission(StructureManagerAsyncContainer* a
 
 	if(returnValue == 0)
 	{
-		string name;
+		BString name;
 		name = asynContainer->name;
 		name.convert(BSTRType_Unicode16);
-		gMessageLib->sendSystemMessage(player,L"","player_structure","player_removed","","",name.getUnicode16());
+        gMessageLib->SendSystemMessage(::common::OutOfBand("player_structure", "player_removed", L"", L"", name.getUnicode16()), player);
 
 		if(HouseObject*	house = dynamic_cast<HouseObject*>(gWorldManager->getObjectById(asynContainer->mStructureId)))
 		{
@@ -569,31 +579,31 @@ void StructureManager::_HandleRemovePermission(StructureManagerAsyncContainer* a
 
 	if(returnValue == 1)
 	{
-		string name;
+		BString name;
 		name = asynContainer->name;
 		name.convert(BSTRType_Unicode16);
-
-		gMessageLib->sendSystemMessage(player,L"","player_structure","modify_list_invalid_player","","",name.getUnicode16());
+        
+        gMessageLib->SendSystemMessage(::common::OutOfBand("player_structure", "modify_list_invalid_player", L"", L"", name.getUnicode16()), player);
 	}
 
 	if(returnValue == 2)
 	{
-		string name;
+		BString name;
 		name = asynContainer->name;
 		//name.convert(BSTRType_Unicode16);
 		name.convert(BSTRType_ANSI);
 		name << " is not on the list";
 		name.convert(BSTRType_Unicode16);
-		gMessageLib->sendSystemMessage(player,name.getUnicode16());
+		gMessageLib->SendSystemMessage(name.getUnicode16(), player);
 	}
 
 	if(returnValue == 3)
 	{
-		string name;
+		BString name;
 		name = asynContainer->name;
 		name.convert(BSTRType_Unicode16);
-
-		gMessageLib->sendSystemMessage(player,L"","player_structure","cannot_remove_owner","","",name.getUnicode16());
+        
+        gMessageLib->SendSystemMessage(::common::OutOfBand("player_structure", "cannot_remove_owner", L"", L"", name.getUnicode16()), player);
 	}
 
 
@@ -666,11 +676,11 @@ void StructureManager::_HandleAddPermission(StructureManagerAsyncContainer* asyn
 
 	if(returnValue == 0)
 	{
-		string name;
+		BString name;
 		name = asynContainer->name;
 		//gMessageLib->sendSystemMessage(player,L"","player_structure","player_added","",name.getAnsi());
 		name.convert(BSTRType_Unicode16);
-		gMessageLib->sendSystemMessage(player,L"","player_structure","player_added","","",name.getUnicode16());
+        gMessageLib->SendSystemMessage(::common::OutOfBand("player_structure", "player_added", L"", L"", name.getUnicode16()), player);
 		
 		//now read in the (admin) list again if its a playerHouse
 		//we need to keep them in memory to handle drop/pickup in cells
@@ -687,36 +697,36 @@ void StructureManager::_HandleAddPermission(StructureManagerAsyncContainer* asyn
 	//no valid name
 	if(returnValue == 1)
 	{
-		string name;
+		BString name;
 		name = asynContainer->name;
 		name.convert(BSTRType_ANSI);
 		gLogger->log(LogManager::DEBUG,"StructurManager add %s failed ",name.getAnsi());
 		name.convert(BSTRType_Unicode16);
 		
-		gMessageLib->sendSystemMessage(player,L"","player_structure","modify_list_invalid_player","","",name.getUnicode16());
+        gMessageLib->SendSystemMessage(::common::OutOfBand("player_structure", "modify_list_invalid_player", L"", L"", name.getUnicode16()), player);
 	}
 
 	//name already on the list
 	if(returnValue == 2)
 	{
-		string name;
+		BString name;
 		name = asynContainer->name;
 		name.convert(BSTRType_ANSI);
 		name << " is already on the list";
 		name.convert(BSTRType_Unicode16);
-		gMessageLib->sendSystemMessage(player,name.getUnicode16());
+		gMessageLib->SendSystemMessage(name.getUnicode16(), player);
 	}
 
 	//no more than 36 entries on the list
 	if(returnValue == 3)
 	{
-		gMessageLib->sendSystemMessage(player,L"","player_structure","too_many_entries");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("player_structure", "too_many_entries"), player);
 	}
 
 	//dont ban the owner
 	if(returnValue == 4)
 	{
-		gMessageLib->sendSystemMessage(player,L"You cannot Ban the structure's Owner");
+		gMessageLib->SendSystemMessage(L"You cannot Ban the structure's Owner", player);
 	}
 
 	mDatabase->DestroyDataBinding(binding);
@@ -807,7 +817,7 @@ void StructureManager::_HandleCheckPermission(StructureManagerAsyncContainer* as
 
 	if(returnValue == 1)
 	{
-		string name;
+		BString name;
 		name = asynContainer->name;
 		name.convert(BSTRType_ANSI);
 		
@@ -832,7 +842,7 @@ void StructureManager::_HandleCheckPermission(StructureManagerAsyncContainer* as
 				building->updateCellPermissions(player,true);
 		}
 		else
-			gMessageLib->sendSystemMessage(player,L"", "player_strucuter","not_admin");
+            gMessageLib->SendSystemMessage(::common::OutOfBand("player_structure", "not_admin"), player);
 	}
 
 	mDatabase->DestroyDataBinding(binding);
@@ -973,6 +983,55 @@ void StructureManager::_HandleUpdateAttributes(StructureManagerAsyncContainer* a
 
 
 }
+//==================================================================================================
+// 
+// all region data loaded
+// 
+
+void StructureManager::_HandleNoBuildRegionData(StructureManagerAsyncContainer* asynContainer,DatabaseResult* result)
+{
+	NoBuildRegionTemplate* noBuildTemplate;
+
+	DataBinding* binding = mDatabase->CreateDataBinding(9);
+	binding->addField(DFT_uint32,offsetof(NoBuildRegionTemplate,region_id),3,0);
+	binding->addField(DFT_bstring,offsetof(NoBuildRegionTemplate,region_name),64,1);
+	binding->addField(DFT_float,offsetof(NoBuildRegionTemplate,mPosition.x),4,2);
+	binding->addField(DFT_float,offsetof(NoBuildRegionTemplate,mPosition.z),4,3);
+	binding->addField(DFT_float,offsetof(NoBuildRegionTemplate,width), 5, 4);
+	binding->addField(DFT_float,offsetof(NoBuildRegionTemplate,height), 5, 5);
+	binding->addField(DFT_uint32,offsetof(NoBuildRegionTemplate,planet_id), 1, 6);
+	binding->addField(DFT_uint32,offsetof(NoBuildRegionTemplate,build), 1,7);
+	binding->addField(DFT_uint32,offsetof(NoBuildRegionTemplate,no_build_type),1,8);
+
+	uint64 count;
+	count = result->getRowCount();
+
+	for(uint64 i = 0;i < count;i++)
+	{
+		noBuildTemplate	= new(NoBuildRegionTemplate);
+		result->GetNextRow(binding,noBuildTemplate);
+		//set if it's a circle, we know it's a circle because it has a 0 width.
+		noBuildTemplate->isCircle			=		(noBuildTemplate->width == 0);
+		if(noBuildTemplate->isCircle)
+		{
+			noBuildTemplate->mRadius		=		noBuildTemplate->height/2;
+			noBuildTemplate->mRadiusSq		=		noBuildTemplate->mRadius * noBuildTemplate->mRadius;
+		}
+		else
+		{
+			noBuildTemplate->mRadius		=		0;
+			noBuildTemplate->mRadiusSq		=		0;
+		}
+
+		mNoBuildList.push_back(noBuildTemplate);
+	}
+
+	if(result->getRowCount())
+		gLogger->log(LogManager::NOTICE,"Loaded %u NoBuildRegions.",count);
+
+	mDatabase->DestroyDataBinding(binding);
+}
+
 
 void StructureManager::handleDatabaseJobComplete(void* ref,DatabaseResult* result)
 {

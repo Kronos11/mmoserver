@@ -478,7 +478,7 @@ bool ObjectController::_processCommandQueue()
 				// execute any attached scripts
 				if (message)	// Auto-attack commands have no message body.
 				{
-					string params;
+					BString params;
 					message->setIndex(paramsIndex);
 					message->getStringUnicode16(params);
 					params.convert(BSTRType_ANSI);
@@ -491,7 +491,7 @@ bool ObjectController::_processCommandQueue()
 			if (message && cmdMsg->getSequence())
 			{
 				// if (PlayerObject* player = dynamic_cast<PlayerObject*>(mObject))
-				gMessageLib->sendCommandQueueRemove(cmdMsg->getSequence(),0.0f,reply1,reply2,player);
+				gMessageLib->sendCommandQueueRemove(cmdMsg->getSequence(),(static_cast<float>(cmdMsg->getExecutionTime())/1000),reply1,reply2,player);
 			}
 
 			// Be aware, internally created messages are NULL (auto-attack)
@@ -849,7 +849,7 @@ bool ObjectController::_validateEnqueueCommand(uint32 &reply1,uint32 &reply2,uin
 			{
 				gMessageLib->sendCraftAcknowledge(opCraftCancelResponse,0,0,player);
 			}
-			gMessageLib->sendSystemMessage(player,L"", "error_message", "wrong_state");
+            gMessageLib->SendSystemMessage(::common::OutOfBand("error_message", "wrong_state"), player);
 			return(false);
 		}
 
@@ -878,7 +878,7 @@ bool ObjectController::_validateProcessCommand(uint32 &reply1,uint32 &reply2,uin
 			{
 				gMessageLib->sendCraftAcknowledge(opCraftCancelResponse,0,0,player);
 			}
-			gMessageLib->sendSystemMessage(player, L"", "error_message", "wrong_state");
+            gMessageLib->SendSystemMessage(::common::OutOfBand("error_message", "wrong_state"), player);
 			return(false);
 		}
 

@@ -33,9 +33,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 //#include "TradeManagerHelp.h"
 
 #include "DatabaseManager/DatabaseCallback.h"
-
-#include "Common/MessageDispatchCallback.h"
-
 #include "Utils/TimerCallback.h"
 
 #include <boost/thread/mutex.hpp>
@@ -89,11 +86,11 @@ enum SRMTimer
 struct structure
 {
 	uint64 owner;
-	string file;
-	string dir;
+	BString file;
+	BString dir;
 	float x;
 	float z;
-	string planet;
+	BString planet;
 	uint32 maxcondition;
 	uint32 condition;
 	uint32 maint;
@@ -102,7 +99,7 @@ struct structure
 
 //======================================================================================================================
 
-class StructureManagerChatHandler : public MessageDispatchCallback, public DatabaseCallback, public TimerCallback
+class StructureManagerChatHandler : public DatabaseCallback, public TimerCallback
 {
 	public:
 
@@ -118,9 +115,7 @@ class StructureManagerChatHandler : public MessageDispatchCallback, public Datab
 				// TimerCallback
 		virtual void		handleTimer(uint32 id, void* container);
 
-		virtual void		handleDispatchMessage(uint32 opcode,Message* message,DispatchClient* client);
 		virtual void		handleDatabaseJobComplete(void* ref,DatabaseResult* result);
-
 
 	private:
 

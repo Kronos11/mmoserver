@@ -61,6 +61,12 @@ struct timerTodoStruct
 
 };
 
+enum StructureState
+{
+	PlayerStructureState_Destroy					=	0x0000000000000001,
+	PlayerStructureState_Condemned					=	0x0000000000000002
+};
+
 //=============================================================================
 
 class PlayerStructure :	public TangibleObject
@@ -125,12 +131,12 @@ class PlayerStructure :	public TangibleObject
 		bool					getRedeed(){return mWillRedeed;}
 
 		// the code we need to enter to destroy a structure
-		string					getCode(){return mCode;}
+		BString					getCode(){return mCode;}
 		void					setCode(){mCode = gStructureManager->getCode();}
 
 		//we store the owners name here when read in from db for the status window
-		string					getOwnersName(){return mOName;}
-		void					setOwnersName(string name){mOName = name;}		
+		BString					getOwnersName(){return mOName;}
+		void					setOwnersName(BString name){mOName = name;}		
 
 		// is called by the structuremanager after reading maintenance data from the db
 		void					deleteStructureDBDataRead(uint64 playerId);
@@ -141,8 +147,8 @@ class PlayerStructure :	public TangibleObject
 		void					sendStructureBanList(uint64 playerId);
 		void					sendStructureEntryList(uint64 playerId);
 
-		void					handleUIEvent(uint32 action,int32 element,string inputStr,UIWindow* window);
-		void					handleUIEvent(string strInventoryCash, string strBankCash, UIWindow* window);
+		void					handleUIEvent(uint32 action,int32 element,BString inputStr,UIWindow* window);
+		void					handleUIEvent(BString strInventoryCash, BString strBankCash, UIWindow* window);
 
 
 		// thats the camps / structures lit of additionally created item like signs and stuff and fires and chairs
@@ -153,22 +159,22 @@ class PlayerStructure :	public TangibleObject
 
 		// thats the structures admin list
 		BStringVector			getStrucureAdminList(){return mStructureAdminList;}
-		void					addStructureAdminListEntry(string name){mStructureAdminList.push_back(name);}
+		void					addStructureAdminListEntry(BString name){mStructureAdminList.push_back(name);}
 		void					resetStructureAdminList(){mStructureAdminList.clear();}
 
 		// thats the structures entry list
 		BStringVector			getStrucureEntryList(){return mStructureEntryList;}
-		void					addStructureEntryListEntry(string name){mStructureEntryList.push_back(name);}
+		void					addStructureEntryListEntry(BString name){mStructureEntryList.push_back(name);}
 		void					resetStructureEntryList(){mStructureEntryList.clear();}
 
 		// thats the structures ban list
 		BStringVector			getStrucureBanList(){return mStructureBanList;}
-		void					addStructureBanListEntry(string name){mStructureBanList.push_back(name);}
+		void					addStructureBanListEntry(BString name){mStructureBanList.push_back(name);}
 		void					resetStructureBanList(){mStructureBanList.clear();}
 
 		// thats the structures admin list
 		BStringVector			getStrucureHopperList(){return mStructureHopperList;}
-		void					addStructureHopperListEntry(string name){mStructureHopperList.push_back(name);}
+		void					addStructureHopperListEntry(BString name){mStructureHopperList.push_back(name);}
 		void					resetStructureHopperList(){mStructureHopperList.clear();}
 
 		// thats the structures admin list
@@ -177,8 +183,15 @@ class PlayerStructure :	public TangibleObject
 		void					resetHousingAdminList(){mHousingAdminList.clear();}
 		bool					hasAdminRights(uint64 id);
 
-		
-
+		//check structure states - like destruction
+		uint64				getState(){ return mState; }
+		//void				setState(uint64 state){ mState = state; }
+		void				toggleStateOn(StructureState state){ mState = mState | state; }
+		void				toggleStateOff(StructureState state){ mState = mState & ~state; }
+		//void				toggleState(StructureState state){ mState = mState ^ state; }
+		bool				checkState(StructureState state){ return((mState & state) == state); }
+		bool				checkStates(uint64 states){ return((mState & states) == states); }
+		bool				checkStatesEither(uint64 states){ return((mState & states) != 0); }
 								 
 
 	private:
@@ -193,6 +206,7 @@ class PlayerStructure :	public TangibleObject
 
 		//structures Owner
 		uint64						mOwner;
+		uint64						mState; //structure states
 		ItemList					mItemList;
 		uint32						mCondition;
 		uint32						mMaintenance;
@@ -200,9 +214,9 @@ class PlayerStructure :	public TangibleObject
 		bool						mWillRedeed;
 		uint8						mLotsUsed;
 
-		string						mCode;
+		BString						mCode;
 		timerTodoStruct				mTTS;
-		string						mOName;
+		BString						mOName;
 
 		ObjectIDList				mHousingAdminList;
 		BStringVector				mStructureBanList;		

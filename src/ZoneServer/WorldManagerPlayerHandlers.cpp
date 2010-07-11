@@ -140,6 +140,10 @@ void  WorldManager::initPlayersInRange(Object* object,PlayerObject* player)
 void WorldManager::savePlayer(uint32 accId,bool remove, WMLogOut mLogout, CharacterLoadingContainer* clContainer)
 {
 	PlayerObject* playerObject			= getPlayerByAccId(accId);
+	if(!playerObject){
+		gLogger->log(LogManager::DEBUG,"WorldManager::savePlayer could not find player with AccId:%u, save aborted.",accId);
+		return;
+	}
 
 	// WMQuery_SavePlayer_Position is the query handler called by the buffmanager when all the buffcallbacks are finished
 	// we prepare the asynccontainer here already
@@ -155,21 +159,34 @@ void WorldManager::savePlayer(uint32 accId,bool remove, WMLogOut mLogout, Charac
 	asyncContainer->mLogout			=   mLogout;
 	asyncContainer->clContainer		=	clContainer;
 
-	//start by saving the buffs the buffmanager will deal with the buffspecific db callbacks and start the position safe at their end
-	//which will return its callback to the worldmanager
-
-	//if no buff was there to be saved we will continue directly
-	if(!gBuffManager->SaveBuffsAsync(asyncContainer, this, playerObject, GetCurrentGlobalTick()))
+	switch (mLogout)
 	{
+		case WMLogOut_LogOut:
+		case WMLogOut_Char_Load:
+			mDatabase->ExecuteSqlAsync(this,asyncContainer,"UPDATE characters SET parent_id=%"PRIu64",oX=%f,oY=%f,oZ=%f,oW=%f,x=%f,y=%f,z=%f,planet_id=%u,jedistate=%u WHERE id=%"PRIu64"",playerObject->getParentId()
+									,playerObject->mDirection.x,playerObject->mDirection.y,playerObject->mDirection.z,playerObject->mDirection.w
+									,playerObject->mPosition.x,playerObject->mPosition.y,playerObject->mPosition.z
+									,mZoneId,playerObject->getJediState(),playerObject->getId());
+			break;
 
-		// position save will be called by the buff callback if there is any buff
-		mDatabase->ExecuteSqlAsync(this,asyncContainer,"UPDATE characters SET parent_id=%"PRIu64",oX=%f,oY=%f,oZ=%f,oW=%f,x=%f,y=%f,z=%f,planet_id=%u,jedistate=%u WHERE id=%"PRIu64"",playerObject->getParentId()
-							,playerObject->mDirection.x,playerObject->mDirection.y,playerObject->mDirection.z,playerObject->mDirection.w
-							,playerObject->mPosition.x,playerObject->mPosition.y,playerObject->mPosition.z
-							,mZoneId,playerObject->getJediState(),playerObject->getId());
+		case WMLogOut_No_LogOut:
+		case WMLogOut_Zone_Transfer:
+			//start by saving the buffs the buffmanager will deal with the buffspecific db callbacks and start the position safe at their end
+			//which will return its callback to the worldmanager
+			//if no buff was there to be saved we will continue directly
+		if(playerObject && playerObject->isConnected() && !playerObject->isBeingDestroyed()){
+			if(!gBuffManager->SaveBuffsAsync(asyncContainer, this, playerObject, GetCurrentGlobalTick()))
+				{
+					// position save will be called by the buff callback if there is any buff
+				mDatabase->ExecuteSqlAsync(this,asyncContainer,"UPDATE characters SET parent_id=%"PRIu64",oX=%f,oY=%f,oZ=%f,oW=%f,x=%f,y=%f,z=%f,planet_id=%u,jedistate=%u WHERE id=%"PRIu64"",playerObject->getParentId()
+									,playerObject->mDirection.x,playerObject->mDirection.y,playerObject->mDirection.z,playerObject->mDirection.w
+									,playerObject->mPosition.x,playerObject->mPosition.y,playerObject->mPosition.z
+									,mZoneId,playerObject->getJediState(),playerObject->getId());
+				}
+			}
+		default:
+			gLogger->log(LogManager::DEBUG,"We should never get in here, make sure to call savePlayer with the enum WMLogOut");
 	}
-
-
 }
 
 //======================================================================================================================
@@ -212,11 +229,17 @@ void WorldManager::savePlayerSync(uint32 accId,bool remove)
 
 
 	gBuffManager->SaveBuffs(playerObject, GetCurrentGlobalTick());
-
 	if(remove)
 		destroyObject(playerObject);
 }
 
+//======================================================================================================================
+// here is where we change how often a player automatically saves
+// TODO: add in server config how often they can save
+bool WorldManager::checkSavePlayer(PlayerObject* playerObject)
+{ 
+	return (playerObject->getSaveTimer() >= 12000);
+}
 //======================================================================================================================
 
 PlayerObject*	WorldManager::getPlayerByAccId(uint32 accId)
@@ -283,8 +306,6 @@ void WorldManager::addDisconnectedPlayer(PlayerObject* playerObject)
 	playerObject->setCraftingSession(NULL);
 	playerObject->toggleStateOff(CreatureState_Crafting);
 
-	//any speeder out?
-
 	//despawn camps ??? - every reference is over id though
 
 	playerObject->getController()->setTaskId(0);
@@ -294,7 +315,9 @@ void WorldManager::addDisconnectedPlayer(PlayerObject* playerObject)
 	playerObject->togglePlayerFlagOn(PlayerFlag_LinkDead);
 	playerObject->setConnectionState(PlayerConnState_LinkDead);
 	playerObject->setDisconnectTime(timeOut);
-	mPlayersToRemove.push_back(playerObject);
+	
+	//add to the disconnect list
+	addPlayerToDisconnectedList(playerObject);
 
 	gMessageLib->sendUpdatePlayerFlags(playerObject);
 }
@@ -313,9 +336,10 @@ void WorldManager::addReconnectedPlayer(PlayerObject* playerObject)
 
 	playerObject->setDisconnectTime(timeOut);
 
-	// resetting move and tickcounters
+	// resetting move, save and tickcounters
 	playerObject->setInMoveCount(0);
 	playerObject->setClientTickCount(0);
+	playerObject->setSaveTimer(0);
 
 	gLogger->log(LogManager::DEBUG,"Player(%"PRIu64") reconnected",playerObject->getId());
 
@@ -327,14 +351,29 @@ void WorldManager::addReconnectedPlayer(PlayerObject* playerObject)
 void WorldManager::removePlayerFromDisconnectedList(PlayerObject* playerObject)
 {
 	PlayerList::iterator it;
-
-	if((it = std::find(mPlayersToRemove.begin(),mPlayersToRemove.end(),playerObject)) == mPlayersToRemove.end())
+	
+	it = std::find(mPlayersToRemove.begin(),mPlayersToRemove.end(),playerObject);
+	if(it == mPlayersToRemove.end())
 	{
 		gLogger->log(LogManager::DEBUG,"WorldManager::addReconnectedPlayer: Error removing Player from Disconnected List: %"PRIu64"",playerObject->getId());
 	}
 	else
 	{
 		mPlayersToRemove.erase(it);
+	}
+}
+
+void WorldManager::addPlayerToDisconnectedList(PlayerObject* playerObject)
+{
+	PlayerList::iterator it;
+	it = std::find(mPlayersToRemove.begin(),mPlayersToRemove.end(),playerObject);
+	if( it == mPlayersToRemove.end())
+	{
+		mPlayersToRemove.push_back(playerObject);
+	}
+	else
+	{
+		gLogger->log(LogManager::DEBUG,"WorldManager::addPlayerToDisconnectedList: Error adding Player : already on List: %"PRIu64"",playerObject->getId());
 	}
 }
 
@@ -444,7 +483,41 @@ void WorldManager::warpPlanet(PlayerObject* playerObject, const glm::vec3& desti
 	playerObject->getHam()->checkForRegen();
 	playerObject->getStomach()->checkForRegen();
 }
+//======================================================================================================================
+//
+// Handles the saving of all players on a fixed interval
+// eventually we will put some logic to only save x players at a time
+// in this once the server becomes more stable
+// 
+bool	WorldManager::_handlePlayerSaveTimers(uint64 callTime, void* ref)
+{
+	//uint32 playerCount = mPlayerAccMap.size();
+	//// don't save all players if > 100
+	uint32 playerSaveCount = 0;
+	PlayerAccMap::iterator playerIt = mPlayerAccMap.begin();
+	while (playerIt != mPlayerAccMap.end())
+	{
+		const PlayerObject* const playerObject = (*playerIt).second;
+		if (playerObject)
+		{
+			if (playerObject->isConnected())
+			{
+				// TODO: don't save all players if > x players (100ish)
+				// set the timer to save rest of players again
+				// TODO: check if player has saved recently
+				// save player async
+				gWorldManager->savePlayer(playerObject->getAccountId(), false, WMLogOut_No_LogOut);
+				++playerSaveCount;
+			}
+			
+		}
 
+		++playerIt;
+	}
+	gLogger->log(LogManager::NOTICE, "Periodic Save of %u Players", playerSaveCount);
+	//setSaveTaskId(mSubsystemScheduler->addTask(fastdelegate::MakeDelegate(this,&WorldManager::_handlePlayerSaveTimers), 4, 60000, NULL));
+	return true;
+}
 //======================================================================================================================
 //
 // Handle update of player movements. We need to have a consistent update of the world around us,

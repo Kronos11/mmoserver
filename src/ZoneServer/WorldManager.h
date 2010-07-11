@@ -118,7 +118,7 @@ typedef std::map<uint64, uint64>				NpcActiveHandlers;
 typedef std::map<uint64, uint64>				AdminRequestHandlers;
 
 // AttributeKey map
-typedef std::map<uint32,string>					AttributeKeyMap;
+typedef std::map<uint32,BString>					AttributeKeyMap;
 typedef std::map<uint32,uint32>					AttributeIDMap;
 
 // non-persistent id set
@@ -154,7 +154,7 @@ class WMQueryContainer
 		WMQueryContainer(){}
 
 		uint64			mId;
-		string			mString;
+		BString			mString;
 };
 
 //======================================================================================================================
@@ -235,11 +235,18 @@ class WorldManager : public ObjectFactoryCallback, public DatabaseCallback, publ
 		uint64					addBuffToProcess(Buff* buff);
 		void					removeBuffToProcess(uint64 taskId);
 
+		// adds a save process
+		uint64					getSaveTaskId(){return mSaveTaskId;}
+		void					setSaveTaskId(uint64 taskId){mSaveTaskId = taskId;}
+
 		// saves a player asyncronously to the database
 		void					savePlayer(uint32 accId,bool remove, WMLogOut mLogout, CharacterLoadingContainer* clContainer = NULL);
 
 		// saves a player synched to the database
 		void					savePlayerSync(uint32 accId,bool remove);
+
+		// checks if the player save timer is up
+		bool					checkSavePlayer(PlayerObject* playerObject);
 
 		// find a player, returns NULL if not found
 		PlayerObject*			getPlayerByAccId(uint32 accId);
@@ -261,6 +268,9 @@ class WorldManager : public ObjectFactoryCallback, public DatabaseCallback, publ
 
 		// removes player from the timeout list
 		void					removePlayerFromDisconnectedList(PlayerObject* playerObject);
+
+		// adds a player to the timeout list
+		void					addPlayerToDisconnectedList(PlayerObject* playerObject);
 
 		// adds a shuttle
 		void					addShuttle(Shuttle* shuttle){ mShuttleList.push_back(shuttle); }
@@ -312,18 +322,18 @@ class WorldManager : public ObjectFactoryCallback, public DatabaseCallback, publ
 		void					warpPlanet(PlayerObject* playerObject, const glm::vec3& destination,uint64 parentId, const glm::quat& direction = glm::quat());
 
 		// get a client effect string by its id
-		string					getClientEffect(uint32 effectId){ return mvClientEffects[effectId - 1]; }
+		BString					getClientEffect(uint32 effectId){ return mvClientEffects[effectId - 1]; }
 
 		// get sound string by its id
-		string					getSound(uint32 soundId){ return mvSounds[soundId - 1]; }
+		BString					getSound(uint32 soundId){ return mvSounds[soundId - 1]; }
 		// get a mood string by its id
-		string					getMood(uint32 moodId){ return mvMoods[moodId]; }
+		BString					getMood(uint32 moodId){ return mvMoods[moodId]; }
 		// get an attribute key
-		string					getAttributeKey(uint32 keyId);
+		BString					getAttributeKey(uint32 keyId);
 		// get an attribute ID
 		uint32					getAttributeId(uint32 keyId);
 		// get a npc animation
-		string					getNpcConverseAnimation(uint32 animId){ return mvNpcConverseAnimations[animId - 1]; }
+		BString					getNpcConverseAnimation(uint32 animId){ return mvNpcConverseAnimations[animId - 1]; }
 		// get a random chat phrase
 		std::pair<std::wstring,uint32>	getNpcChatter(uint32 id){ return mvNpcChatter[id]; }
 		std::pair<std::wstring,uint32>	getRandNpcChatter();
@@ -331,8 +341,8 @@ class WorldManager : public ObjectFactoryCallback, public DatabaseCallback, publ
 		// get planet, trn file name
 		const int8* getPlanetNameThis() const { return mvPlanetNames[mZoneId].getAnsi(); }
 		const int8* getPlanetNameById(uint8 planetId) const { return mvPlanetNames[planetId].getAnsi(); }
-		int32					getPlanetIdByName(string name);
-		int32					getPlanetIdByNameLike(string name);
+		int32					getPlanetIdByName(BString name);
+		int32					getPlanetIdByNameLike(BString name);
 
 		const int8* getTrnFileThis() const { return mvTrnFileNames[mZoneId].getAnsi(); }
 		const int8* getTrnFileById(uint8 trnId) const { return mvTrnFileNames[trnId].getAnsi(); }
@@ -405,6 +415,9 @@ class WorldManager : public ObjectFactoryCallback, public DatabaseCallback, publ
 		bool	_handleNpcConversionTimers(uint64 callTime,void* ref);
 		bool	_handleFireworkLaunchTimers(uint64 callTime,void* ref);
 		bool	_handleVariousUpdates(uint64 callTime, void* ref);
+
+		//		Save players, who haven't saved in x minutes
+		bool	_handlePlayerSaveTimers(uint64 callTime, void* ref);
 
 		bool	_handlePlayerMovementUpdateTimers(uint64 callTime, void* ref);
 
@@ -488,6 +501,8 @@ class WorldManager : public ObjectFactoryCallback, public DatabaseCallback, publ
 		uint64						mTick;
 		uint32						mTotalObjectCount;
 		uint32						mZoneId;
+
+		uint64						mSaveTaskId;
 		
 		bool						mDebug;
 };

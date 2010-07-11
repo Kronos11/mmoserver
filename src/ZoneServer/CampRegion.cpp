@@ -250,9 +250,9 @@ void CampRegion::onObjectEnter(Object* object)
 			PlayerObject* player = dynamic_cast<PlayerObject*>(object);
 			int8 text[64];
 			sprintf(text,"You have entered %s's camp",this->getCampOwnerName().getAnsi());
-			string uT = text;
+			BString uT = text;
 			uT.convert(BSTRType_Unicode16);
-      gMessageLib->sendSystemMessage(player, uT.getUnicode16());
+            gMessageLib->SendSystemMessage(uT.getUnicode16(), player);
 		}
 		else
 		{
@@ -289,9 +289,9 @@ void CampRegion::onObjectLeave(Object* object)
 	{
 		int8 text[64];
 		sprintf(text,"You have left %s's camp", this->getCampOwnerName().getAnsi());
-		string uT = text;
+		BString uT = text;
 		uT.convert(BSTRType_Unicode16);
-    gMessageLib->sendSystemMessage(player, uT.getUnicode16());
+        gMessageLib->SendSystemMessage(uT.getUnicode16(), player);
 	}
 		//check whether we are the owner and if yes set our abandoning timer
 }

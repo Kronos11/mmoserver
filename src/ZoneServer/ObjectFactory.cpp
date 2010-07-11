@@ -271,7 +271,25 @@ void ObjectFactory::handleDatabaseJobComplete(void* ref,DatabaseResult* result)
 				gLogger->log(LogManager::DEBUG,"ObjFactory::createWaypoint failed");
 		}
 		break;
-
+		case QFQuery_WaypointUpdate:
+		{
+			// we're looking for a value of the waypoint that was updated
+			uint32 returnId = 0;
+			DataBinding* binding = mDatabase->CreateDataBinding(1);
+			binding->addField(DFT_uint32,0,4);
+			result->GetNextRow(binding,&returnId);
+			mDatabase->DestroyDataBinding(binding);
+			switch (returnId)
+			{
+				case 0:
+				case 3:
+					mWaypointFactory->requestObject(asyncContainer->ofCallback,asyncContainer->Id,0,0,asyncContainer->client);
+					break;
+				default:
+					gLogger->log(LogManager::DEBUG,"ObjFactory::updateWaypoint failed");
+			}
+		}
+		break;
 		case OFQuery_Item:
 		{
 			uint64 requestId = 0;
@@ -339,7 +357,7 @@ void ObjectFactory::requestNewClonedItem(ObjectFactoryCallback* ofCallback,uint6
 //
 // create a new item by schematic crc with default attributes
 //
-void ObjectFactory::requestNewDefaultItem(ObjectFactoryCallback* ofCallback, uint32 schemCrc, uint64 parentId, uint16 planetId, const glm::vec3& position, const string& customName)
+void ObjectFactory::requestNewDefaultItem(ObjectFactoryCallback* ofCallback, uint32 schemCrc, uint64 parentId, uint16 planetId, const glm::vec3& position, const BString& customName)
 {
 	OFAsyncContainer* asyncContainer = new(mDbAsyncPool.ordered_malloc()) OFAsyncContainer(ofCallback,OFQuery_Item,NULL);
 
@@ -350,7 +368,7 @@ void ObjectFactory::requestNewDefaultItem(ObjectFactoryCallback* ofCallback, uin
 //
 // create a new item with default attributes
 //
-void ObjectFactory::requestNewDefaultItem(ObjectFactoryCallback* ofCallback,uint32 familyId,uint32 typeId,uint64 parentId,uint16 planetId, const glm::vec3& position, const string& customName)
+void ObjectFactory::requestNewDefaultItem(ObjectFactoryCallback* ofCallback,uint32 familyId,uint32 typeId,uint64 parentId,uint16 planetId, const glm::vec3& position, const BString& customName)
 {
 	OFAsyncContainer* asyncContainer = new(mDbAsyncPool.ordered_malloc()) OFAsyncContainer(ofCallback,OFQuery_Item,NULL);
 
@@ -361,7 +379,7 @@ void ObjectFactory::requestNewDefaultItem(ObjectFactoryCallback* ofCallback,uint
 //
 // create a new item with default attributes
 //
-void ObjectFactory::requestNewDefaultItemWithUses(ObjectFactoryCallback* ofCallback,uint32 familyId,uint32 typeId,uint64 parentId,uint16 planetId, const glm::vec3& position, const string& customName, int useCount)
+void ObjectFactory::requestNewDefaultItemWithUses(ObjectFactoryCallback* ofCallback,uint32 familyId,uint32 typeId,uint64 parentId,uint16 planetId, const glm::vec3& position, const BString& customName, int useCount)
 {
 	OFAsyncContainer* asyncContainer = new(mDbAsyncPool.ordered_malloc()) OFAsyncContainer(ofCallback,OFQuery_Item,NULL);
 
@@ -406,7 +424,7 @@ void ObjectFactory::requestNewResourceContainer(ObjectFactoryCallback* ofCallbac
 //
 // creates a harvester based on the supplied deed
 //
-void ObjectFactory::requestnewHarvesterbyDeed(ObjectFactoryCallback* ofCallback,Deed* deed,DispatchClient* client, float x, float y, float z, float dir, string customName, PlayerObject* player)
+void ObjectFactory::requestnewHarvesterbyDeed(ObjectFactoryCallback* ofCallback,Deed* deed,DispatchClient* client, float x, float y, float z, float dir, BString customName, PlayerObject* player)
 {
 	//create a new Harvester Object with the attributes as specified by the deed
 	OFAsyncContainer* asyncContainer = new(mDbAsyncPool.ordered_malloc()) OFAsyncContainer(ofCallback,OFQuery_Harvester,client);
@@ -468,7 +486,7 @@ void ObjectFactory::requestnewHarvesterbyDeed(ObjectFactoryCallback* ofCallback,
 //
 // creates a fatory based on the supplied deed
 //
-void ObjectFactory::requestnewFactorybyDeed(ObjectFactoryCallback* ofCallback,Deed* deed,DispatchClient* client, float x, float y, float z, float dir, string customName, PlayerObject* player)
+void ObjectFactory::requestnewFactorybyDeed(ObjectFactoryCallback* ofCallback,Deed* deed,DispatchClient* client, float x, float y, float z, float dir, BString customName, PlayerObject* player)
 {
 	//create a new Harvester Object with the attributes as specified by the deed
 	OFAsyncContainer* asyncContainer = new(mDbAsyncPool.ordered_malloc()) OFAsyncContainer(ofCallback,OFQuery_Factory,client);
@@ -526,7 +544,7 @@ void ObjectFactory::requestnewFactorybyDeed(ObjectFactoryCallback* ofCallback,De
 
 }
 
-void ObjectFactory::requestnewHousebyDeed(ObjectFactoryCallback* ofCallback,Deed* deed,DispatchClient* client, float x, float y, float z, float dir, string customName, PlayerObject* player)
+void ObjectFactory::requestnewHousebyDeed(ObjectFactoryCallback* ofCallback,Deed* deed,DispatchClient* client, float x, float y, float z, float dir, BString customName, PlayerObject* player)
 {
 		//create a new Harvester Object with the attributes as specified by the deed
 	OFAsyncContainer* asyncContainer = new(mDbAsyncPool.ordered_malloc()) OFAsyncContainer(ofCallback,OFQuery_House,client);
@@ -588,10 +606,10 @@ void ObjectFactory::requestnewHousebyDeed(ObjectFactoryCallback* ofCallback,Deed
 // create a new waypoint
 // never call this directly - always go over the datapad!!!!!  we need to check the capacity
 //
-void ObjectFactory::requestNewWaypoint(ObjectFactoryCallback* ofCallback,string name, const glm::vec3& coords,uint16 planetId,uint64 ownerId,uint8 wpType)
+void ObjectFactory::requestNewWaypoint(ObjectFactoryCallback* ofCallback,BString name, const glm::vec3& coords,uint16 planetId,uint64 ownerId,uint8 wpType)
 {
-
-	OFAsyncContainer* asyncContainer = new(mDbAsyncPool.ordered_malloc()) OFAsyncContainer(ofCallback,OFQuery_WaypointCreate,NULL);
+	PlayerObject* player = dynamic_cast<PlayerObject*>(gWorldManager->getObjectById(ownerId));
+	OFAsyncContainer* asyncContainer = new(mDbAsyncPool.ordered_malloc()) OFAsyncContainer(ofCallback,OFQuery_WaypointCreate,player->getClient());
 	int8 sql[512],*sqlPointer;
 	int8 restStr[128];
 
@@ -604,7 +622,29 @@ void ObjectFactory::requestNewWaypoint(ObjectFactoryCallback* ofCallback,string 
 	mDatabase->ExecuteSqlAsync(this,asyncContainer,sql);
 
 }
+//=============================================================================
+//
+// update existing waypoint
+// never call this directly - always go over the datapad!!!!!  
+//
+void ObjectFactory::requestUpdatedWaypoint(ObjectFactoryCallback* ofCallback,uint64 wpId,BString name, 
+	 const glm::vec3& coords,uint16 planetId,uint64 ownerId, uint8 activeStatus)
+{
+	PlayerObject* player = dynamic_cast<PlayerObject*>(gWorldManager->getObjectById(ownerId));
+	OFAsyncContainer* asyncContainer = new(mDbAsyncPool.ordered_malloc()) OFAsyncContainer(ofCallback,QFQuery_WaypointUpdate,player->getClient());
+	asyncContainer->Id = wpId;
 
+	int8 sql[512],*sqlPointer;
+	int8 restStr[128];
+	name.convert(BSTRType_ANSI);
+	sprintf(sql,"CALL sp_WaypointUpdate('");
+	sqlPointer = sql + strlen(sql);
+	sqlPointer += mDatabase->Escape_String(sqlPointer, name.getAnsi() ,name.getLength());
+	sprintf(restStr,"',%"PRIu64",%f,%f,%f,%u,%u)",wpId, coords.x, coords.y, coords.z, planetId, activeStatus);
+	strcat(sql,restStr);
+
+	mDatabase->ExecuteProcedureAsync(this,asyncContainer,sql);
+}
 //=============================================================================
 
 void ObjectFactory::requestTanoNewParent(ObjectFactoryCallback* ofCallback,uint64 ObjectId,uint64 parentID, TangibleGroup Group)
@@ -718,11 +758,14 @@ void ObjectFactory::deleteObjectFromDB(Object* object)
 					if(item->getItemType() == ItemFamily_ManufacturingSchematic)
 					{
 						ManufacturingSchematic* schem = dynamic_cast<ManufacturingSchematic*> (object);
-						//first associated item
-						sprintf(sql,"DELETE FROM items WHERE id = %"PRIu64"",schem->getItem()->getId());
-						mDatabase->ExecuteSqlAsync(NULL,NULL,sql);
-						sprintf(sql,"DELETE FROM item_attributes WHERE item_id = %"PRIu64"",schem->getItem()->getId());
-						mDatabase->ExecuteSqlAsync(NULL,NULL,sql);
+						if (schem)
+						{
+							//first associated item
+							sprintf(sql,"DELETE FROM items WHERE id = %"PRIu64"",schem->getItem()->getId());
+							mDatabase->ExecuteSqlAsync(NULL,NULL,sql);
+							sprintf(sql,"DELETE FROM item_attributes WHERE item_id = %"PRIu64"",schem->getItem()->getId());
+							mDatabase->ExecuteSqlAsync(NULL,NULL,sql);
+						}
 
 					}
 

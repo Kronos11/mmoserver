@@ -61,7 +61,6 @@ CSRManager::CSRManager(Database* database, MessageDispatch* dispatch, ChatManage
 	mChatManager = chatManager;
 
 	_registerCallbacks();
-	_loadCommandMap();
 	_loadDatabindings();
 
 	CSRAsyncContainer* asyncContainer = new CSRAsyncContainer(CSRQuery_Categories);
@@ -158,34 +157,18 @@ void CSRManager::_loadDatabindings()
 
 //======================================================================================================================
 
-void CSRManager::_loadCommandMap()
-{
-	mCommandMap.insert(std::make_pair(opConnectPlayerMessage,			&CSRManager::_processConnectPlayerMessage));
-	mCommandMap.insert(std::make_pair(opSearchKnowledgeBaseMessage,		&CSRManager::_processSearchKnowledgeBaseMessage));
-	mCommandMap.insert(std::make_pair(opRequestCategoriesMessage,		&CSRManager::_processRequestCategoriesMessage));
-	mCommandMap.insert(std::make_pair(opNewTicketActivityMessage,		&CSRManager::_processNewTicketActivityMessage));
-	mCommandMap.insert(std::make_pair(opGetTicketsMessage,				&CSRManager::_processGetTicketsMessage));
-	mCommandMap.insert(std::make_pair(opGetCommentsMessage,				&CSRManager::_processGetCommentsMessage));
-	mCommandMap.insert(std::make_pair(opGetArticleMessage,				&CSRManager::_processGetArticleMessage));
-	mCommandMap.insert(std::make_pair(opCreateTicketMessage,			&CSRManager::_processCreateTicketMessage));
-	mCommandMap.insert(std::make_pair(opCancelTicketMessage,			&CSRManager::_processCancelTicketMessage));
-	mCommandMap.insert(std::make_pair(opAppendCommentMessage,			&CSRManager::_processAppendCommentMessage));
-}
-
-//======================================================================================================================
-
 void CSRManager::_registerCallbacks()
 {
-	mMessageDispatch->RegisterMessageCallback(opConnectPlayerMessage, this);
-	mMessageDispatch->RegisterMessageCallback(opSearchKnowledgeBaseMessage, this);
-	mMessageDispatch->RegisterMessageCallback(opRequestCategoriesMessage, this);
-	mMessageDispatch->RegisterMessageCallback(opNewTicketActivityMessage, this);
-	mMessageDispatch->RegisterMessageCallback(opGetTicketsMessage, this);
-	mMessageDispatch->RegisterMessageCallback(opGetCommentsMessage, this);
-	mMessageDispatch->RegisterMessageCallback(opGetArticleMessage, this);
-	mMessageDispatch->RegisterMessageCallback(opCreateTicketMessage, this);
-	mMessageDispatch->RegisterMessageCallback(opCancelTicketMessage, this);
-	mMessageDispatch->RegisterMessageCallback(opAppendCommentMessage, this);
+	mMessageDispatch->RegisterMessageCallback(opConnectPlayerMessage, std::bind(&CSRManager::_processConnectPlayerMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opSearchKnowledgeBaseMessage, std::bind(&CSRManager::_processSearchKnowledgeBaseMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opRequestCategoriesMessage, std::bind(&CSRManager::_processRequestCategoriesMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opNewTicketActivityMessage, std::bind(&CSRManager::_processNewTicketActivityMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opGetTicketsMessage, std::bind(&CSRManager::_processGetTicketsMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opGetCommentsMessage, std::bind(&CSRManager::_processGetCommentsMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opGetArticleMessage, std::bind(&CSRManager::_processGetArticleMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opCreateTicketMessage, std::bind(&CSRManager::_processCreateTicketMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opCancelTicketMessage, std::bind(&CSRManager::_processCancelTicketMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opAppendCommentMessage, std::bind(&CSRManager::_processAppendCommentMessage, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 //======================================================================================================================
@@ -218,21 +201,6 @@ void CSRManager::_destroyDatabindings()
 
 //======================================================================================================================
 
-void CSRManager::handleDispatchMessage(uint32 opcode,Message* message,DispatchClient* client)
-{
-	CSRCommandMap::iterator it = mCommandMap.find(opcode);
-
-	gLogger->log(LogManager::DEBUG,"Incomming CSR Command: %u", opcode);
-
-
-	if(it != mCommandMap.end())
-		(this->*((*it).second))(message,client);
-	else
-		gLogger->log(LogManager::DEBUG,"Unhandled DispatchMsg %u",opcode);
-}
-
-//======================================================================================================================
-
 void CSRManager::_processConnectPlayerMessage(Message* message, DispatchClient* client)
 {
 	uint32 errorcode = message->getUint32();
@@ -245,8 +213,8 @@ void CSRManager::_processConnectPlayerMessage(Message* message, DispatchClient* 
 void CSRManager::_processAppendCommentMessage( Message* message, DispatchClient* client )
 {
 	gLogger->log(LogManager::DEBUG,"CSRManager::_processAppendCommentMessage");
-	string poster;
-	string comment;
+	BString poster;
+	BString comment;
 
 	uint32 ticketid = message->getUint32();
 	message->getStringAnsi(poster);
@@ -288,11 +256,11 @@ void CSRManager::_processCancelTicketMessage( Message* message, DispatchClient* 
 
 void CSRManager::_processCreateTicketMessage( Message* message, DispatchClient* client )
 {
-	string playername;
-	string comment;
-	string info;
-	string harrassinguser;
-	string language;
+	BString playername;
+	BString comment;
+	BString info;
+	BString harrassinguser;
+	BString language;
 
 	message->getStringAnsi(playername);
 	uint32 category = message->getUint32();
@@ -327,7 +295,7 @@ void CSRManager::_processCreateTicketMessage( Message* message, DispatchClient* 
 
 void CSRManager::_processGetArticleMessage(Message *message, DispatchClient* client)
 {
-	string id;
+	BString id;
 	message->getStringAnsi(id);
 	id.convert(BSTRType_ANSI);
 
@@ -372,7 +340,7 @@ void CSRManager::_processNewTicketActivityMessage(Message *message, DispatchClie
 
 void CSRManager::_processRequestCategoriesMessage(Message *message, DispatchClient* client)
 {
-	string language;
+	BString language;
 	message->getStringAnsi(language);
 	gLogger->log(LogManager::DEBUG,"CSRManager::_processRequestCategoriesMessage %s\n", language.getAnsi());
 	gChatMessageLib->sendRequestCategoriesResponseMessage(client, &mCategoryList);
@@ -383,14 +351,14 @@ void CSRManager::_processRequestCategoriesMessage(Message *message, DispatchClie
 
 void CSRManager::_processSearchKnowledgeBaseMessage(Message *message, DispatchClient* client)
 {
-	string search;
+	BString search;
 	message->getStringUnicode16(search);
 	search.convert(BSTRType_ANSI);
 	BStringVector splitstring;
 	search.split(splitstring, ' ');
 	BStringVector::iterator iter = splitstring.begin();
 
-	string sql = "%";
+	BString sql = "%";
 	while (iter != splitstring.end())
 	{
 		int8 cleanSearchString[4000];

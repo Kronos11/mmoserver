@@ -147,7 +147,7 @@ uint32 CombatManager::getDefaultAttackAnimation(uint32 weaponGroup)
 // get the combat spam for the default attack belonging to a weapongroup
 //
 
-string CombatManager::getDefaultSpam(uint32 weaponGroup)
+BString CombatManager::getDefaultSpam(uint32 weaponGroup)
 {
 	WeaponGroups::iterator it = mWeaponGroups.begin();
 
@@ -379,7 +379,7 @@ bool CombatManager::handleAttack(CreatureObject *attacker, uint64 targetId, Obje
 		PlayerObject* playerAttacker = dynamic_cast<PlayerObject*>(attacker);
 		if (playerAttacker && playerAttacker->isConnected())
 		{
-			gMessageLib->sendSystemMessage(playerAttacker,L"","error_message","target_out_of_range", "", "", L"", 0, "", "");
+            gMessageLib->SendSystemMessage(::common::OutOfBand("error_message", "target_out_of_range"), playerAttacker);
 		}
 		// It's like you shoot but missed, maintain cooldown.
 		// return true;
@@ -406,7 +406,7 @@ uint8 CombatManager::_executeAttack(CreatureObject* attacker,CreatureObject* def
 	//uint8	randomPoolHitChance		= 100;
 	uint8	stateApplied			= 0;
 	int32	multipliedDamage		= 0;
-	string	combatSpam				= "melee";
+	BString	combatSpam				= "melee";
 
 	// first see if we actually hit our target
 	uint8 attackResult = _hitCheck(attacker,defender,cmdProperties,weapon);
@@ -523,26 +523,7 @@ uint8 CombatManager::_executeAttack(CreatureObject* attacker,CreatureObject* def
 			PlayerObject* playerAttacker = dynamic_cast<PlayerObject*>(attacker);
 			if (playerAttacker && playerAttacker->isConnected())
 			{
-				if (defender->getType() == ObjType_Player)
-				{
-					int8 str[128];
-					if (defender->getLastName().getLength())
-					{
-						sprintf(str,"%s %s", defender->getFirstName().getAnsi(), defender->getLastName().getAnsi());
-					}
-					else
-					{
-						sprintf(str,"%s", defender->getFirstName().getAnsi());
-					}
-					string playerName(str);
-					playerName.convert(BSTRType_Unicode16);
-
-          gMessageLib->sendSystemMessage(playerAttacker,L"","base_player","prose_target_incap", "", "", L"", 0, "", "", playerName.getUnicode16());
-				}
-				else
-				{
-          gMessageLib->sendSystemMessage(playerAttacker,L"","base_player","prose_target_incap", "", "", L"", 0, defender->getSpeciesGroup().getAnsi(), defender->getSpeciesString().getAnsi());
-				}
+                gMessageLib->SendSystemMessage(::common::OutOfBand("base_player", "prose_target_incap", 0, defender->getId(), 0), playerAttacker);
 			}
 		}
 		if (defender->isDead())
@@ -550,26 +531,7 @@ uint8 CombatManager::_executeAttack(CreatureObject* attacker,CreatureObject* def
 			PlayerObject* playerAttacker = dynamic_cast<PlayerObject*>(attacker);
 			if (playerAttacker && playerAttacker->isConnected())
 			{
-				if (defender->getType() == ObjType_Player)
-				{
-					int8 str[128];
-					if (defender->getLastName().getLength())
-					{
-						sprintf(str,"%s %s", defender->getFirstName().getAnsi(), defender->getLastName().getAnsi());
-					}
-					else
-					{
-						sprintf(str,"%s", defender->getFirstName().getAnsi());
-					}
-					string playerName(str);
-					playerName.convert(BSTRType_Unicode16);
-          gMessageLib->sendSystemMessage(playerAttacker,L"","base_player","prose_target_dead", "", "", L"", 0, "", "", playerName.getUnicode16());
-				}
-				else
-				{
-					// Disabled Spam when killing creatures.
-					// gMessageLib->sendSystemMessage(playerAttacker,L"","base_player","prose_target_dead", "", "", L"", 0, defender->getSpeciesGroup(), defender->getSpeciesString());
-				}
+                gMessageLib->SendSystemMessage(::common::OutOfBand("base_player", "prose_target_dead", 0, defender->getId(), 0), playerAttacker);
 			}
 		}
 	}

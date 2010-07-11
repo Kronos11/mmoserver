@@ -33,7 +33,8 @@ public:
 	ArtisanHeightmapAsyncContainer(HeightMapCallBack* callback, HeightmapCallbackTypes type) : HeightmapAsyncContainer(callback, type)
 	{
 	}
-	string resourceName;
+	ObjectFactoryCallback* ofCallback;
+	BString resourceName;
 	CurrentResource* resource;
 	SurveyTool* tool;
 	PlayerObject* playerObject;

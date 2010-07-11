@@ -299,10 +299,11 @@ Item* ItemFactory::_createItem(DatabaseResult* result)
 		case ItemFamily_FactoryCrate:			item	= new FactoryCrate();				break;
 		case ItemFamily_Hopper:					item	= new Item();						break;
 		case ItemFamily_BugJar:					item	= new BugJar();						break;
+		case ItemFamily_Component:				item	= new Item();						break;
 		default:
 		{
 			item = new Item();
-			gLogger->log(LogManager::NOTICE,"ItemFactory::createItem unknown Family %u",itemIdentifier.mFamilyId);
+			gLogger->log(LogManager::NOTICE,"ItemFactory::createItem (itemType: %u) with unknown Family %u",itemIdentifier.mTypeId, itemIdentifier.mFamilyId);
 		}
 		break;
 	}
@@ -440,10 +441,11 @@ void ItemFactory::handleObjectReady(Object* object,DispatchClient* client)
 	
 	InLoadingContainer* ilc	= _getObject(object->getParentId());
 	
-	assert(ilc && "ItemFactory::handleObjectReady unable to find InLoadingContainer");
 	if (! ilc) {
+		gLogger->log(LogManager::WARNING,"ItemFactory::handleObjectReady could not locate ILC for objectParentId:%I64u",object->getParentId());
 		return;
 	}
+	assert(ilc && "ItemFactory::handleObjectReady unable to find InLoadingContainer");
 
 	Item*		item	= dynamic_cast<Item*>(ilc->mObject);
 	// we can get factory crates, resource containers and other items at this point

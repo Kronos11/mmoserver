@@ -67,7 +67,6 @@ mMessageDispatch(dispatch)
 	mMainCategory = "SWG";
 
 	_registerCallbacks();
-	_loadCommandMap();
 	_loadDatabindings();
 
 	ChatAsyncContainer* asyncContainer = new ChatAsyncContainer(ChatQuery_GalaxyName);
@@ -116,63 +115,15 @@ ChatManager::~ChatManager()
 
 //======================================================================================================================
 
-void ChatManager::_loadCommandMap()
-{
-	mCommandMap.insert(std::make_pair(opChatRequestRoomlist,&ChatManager::_processRoomlistRequest));
-	mCommandMap.insert(std::make_pair(opChatCreateRoom,&ChatManager::_processCreateRoom));
-	mCommandMap.insert(std::make_pair(opChatDestroyRoom,&ChatManager::_processDestroyRoom));
-	mCommandMap.insert(std::make_pair(opChatEnterRoomById,&ChatManager::_processEnterRoomById));
-	mCommandMap.insert(std::make_pair(opChatQueryRoom,&ChatManager::_processRoomQuery));
-	mCommandMap.insert(std::make_pair(opChatRoomMessage,&ChatManager::_processRoomMessage));
-	mCommandMap.insert(std::make_pair(opChatSendToRoom,&ChatManager::_processSendToRoom));
-	mCommandMap.insert(std::make_pair(opChatAddModeratorToRoom,&ChatManager::_processAddModeratorToRoom));
-	mCommandMap.insert(std::make_pair(opChatInviteAvatarToRoom,&ChatManager::_processInviteAvatarToRoom));
-	mCommandMap.insert(std::make_pair(opChatUninviteFromRoom,&ChatManager::_processUninviteAvatarFromRoom));
-	mCommandMap.insert(std::make_pair(opChatRemoveModFromRoom,&ChatManager::_processRemoveModFromRoom));
-	mCommandMap.insert(std::make_pair(opChatRemoveAvatarFromRoom,&ChatManager::_processRemoveAvatarFromRoom));
-	mCommandMap.insert(std::make_pair(opChatBanAvatarFromRoom,&ChatManager::_processBanAvatarFromRoom));
-	mCommandMap.insert(std::make_pair(opChatUnbanAvatarFromRoom,&ChatManager::_processUnbanAvatarFromRoom));
-	mCommandMap.insert(std::make_pair(opChatAvatarId,&ChatManager::_processAvatarId));
-	mCommandMap.insert(std::make_pair(opChatInstantMessageToCharacter,&ChatManager::_processInstantMessageToCharacter));
-	mCommandMap.insert(std::make_pair(opChatPersistentMessageToServer,&ChatManager::_processPersistentMessageToServer));
-	mCommandMap.insert(std::make_pair(opChatRequestPersistentMessage,&ChatManager::_processRequestPersistentMessage));
-	mCommandMap.insert(std::make_pair(opChatDeletePersistentMessage,&ChatManager::_processDeletePersistentMessage));
-	mCommandMap.insert(std::make_pair(opChatFriendlistUpdate,&ChatManager::_processFriendlistUpdate));
-	mCommandMap.insert(std::make_pair(opChatAddFriend,&ChatManager::_processAddFriend));
-
-	mCommandMap.insert(std::make_pair(opClusterClientConnect,&ChatManager::_processClusterClientConnect));
-	mCommandMap.insert(std::make_pair(opClusterClientDisconnect,&ChatManager::_processClusterClientDisconnect));
-	mCommandMap.insert(std::make_pair(opClusterZoneTransferCharacter,&ChatManager::_processZoneTransfer));
-	mCommandMap.insert(std::make_pair(opChatNotifySceneReady,&ChatManager::_processWhenLoaded));
-
-
-	mCommandMap.insert(std::make_pair(opNotifyChatAddFriend,&ChatManager::_processNotifyChatAddFriend));
-	mCommandMap.insert(std::make_pair(opNotifyChatRemoveFriend,&ChatManager::_processNotifyChatRemoveFriend));
-	mCommandMap.insert(std::make_pair(opNotifyChatAddIgnore,&ChatManager::_processNotifyChatAddIgnore));
-	mCommandMap.insert(std::make_pair(opNotifyChatRemoveIgnore,&ChatManager::_processNotifyChatRemoveIgnore));
-
-	mCommandMap.insert(std::make_pair(opSendSystemMailMessage,&ChatManager::_processSystemMailMessage));
-	mCommandMap.insert(std::make_pair(opNotifyChatFindFriend,&ChatManager::_processFindFriendMessage));
-	mCommandMap.insert(std::make_pair(opFindFriendSendPosition,&ChatManager::_processFindFriendGotPosition));
-
-	mCommandMap.insert(std::make_pair(opIsmGroupSay,&ChatManager::_processGroupSaySend));
-	mCommandMap.insert(std::make_pair(opIsmBroadcastGalaxy,&ChatManager::_processBroadcastGalaxy));
-	mCommandMap.insert(std::make_pair(opIsmScheduleShutdown,&ChatManager::_processScheduleShutdown));
-	mCommandMap.insert(std::make_pair(opIsmCancelShutdown,&ChatManager::_processCancelScheduledShutdown));
-
-}
-
-//======================================================================================================================
-
 void ChatManager::_loadChannels(DatabaseResult* result)
 {
 	uint64 count = result->getRowCount();
 
 	for(uint64 i = 0;i < count;i++)
 	{
-		string creator;
+		BString creator;
 
-		string owner;
+		BString owner;
 		Channel* channel = new Channel();
 		result->GetNextRow(mChannelBinding,channel->getChannelData());
 
@@ -303,48 +254,42 @@ void ChatManager::unregisterChannel(Channel* channel)
 
 void ChatManager::_registerCallbacks()
 {
-	mMessageDispatch->RegisterMessageCallback(opClusterClientConnect,this);
-	mMessageDispatch->RegisterMessageCallback(opClusterClientDisconnect,this);
-	mMessageDispatch->RegisterMessageCallback(opClusterZoneTransferCharacter,this);
-	mMessageDispatch->RegisterMessageCallback(opChatNotifySceneReady,this);
-	mMessageDispatch->RegisterMessageCallback(opChatRequestRoomlist,this);
-	mMessageDispatch->RegisterMessageCallback(opChatCreateRoom,this);
-	mMessageDispatch->RegisterMessageCallback(opChatDestroyRoom,this);
-	mMessageDispatch->RegisterMessageCallback(opChatEnterRoomById,this);
-	mMessageDispatch->RegisterMessageCallback(opChatQueryRoom,this);
-	mMessageDispatch->RegisterMessageCallback(opChatRoomMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opChatSendToRoom,this);
-	mMessageDispatch->RegisterMessageCallback(opChatAddModeratorToRoom,this);
-	mMessageDispatch->RegisterMessageCallback(opChatInviteAvatarToRoom,this);
-	mMessageDispatch->RegisterMessageCallback(opChatUninviteFromRoom,this);
-	mMessageDispatch->RegisterMessageCallback(opChatRemoveModFromRoom,this);
-	mMessageDispatch->RegisterMessageCallback(opChatRemoveAvatarFromRoom,this);
-	mMessageDispatch->RegisterMessageCallback(opChatBanAvatarFromRoom,this);
-	mMessageDispatch->RegisterMessageCallback(opChatUnbanAvatarFromRoom,this);
-	mMessageDispatch->RegisterMessageCallback(opChatAvatarId,this);
-
-	mMessageDispatch->RegisterMessageCallback(opChatInstantMessageToCharacter,this);
-
-	mMessageDispatch->RegisterMessageCallback(opChatPersistentMessageToServer,this);
-	mMessageDispatch->RegisterMessageCallback(opChatRequestPersistentMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opChatDeletePersistentMessage,this);
-
-	mMessageDispatch->RegisterMessageCallback(opChatFriendlistUpdate,this);
-	mMessageDispatch->RegisterMessageCallback(opChatAddFriend,this);
-
-	mMessageDispatch->RegisterMessageCallback(opNotifyChatAddFriend,this);
-	mMessageDispatch->RegisterMessageCallback(opNotifyChatRemoveFriend,this);
-	mMessageDispatch->RegisterMessageCallback(opNotifyChatAddIgnore,this);
-	mMessageDispatch->RegisterMessageCallback(opNotifyChatRemoveIgnore,this);
-	mMessageDispatch->RegisterMessageCallback(opNotifyChatFindFriend,this);
-	mMessageDispatch->RegisterMessageCallback(opFindFriendSendPosition,this);
-
-	mMessageDispatch->RegisterMessageCallback(opSendSystemMailMessage,this);
-
-	mMessageDispatch->RegisterMessageCallback(opIsmGroupSay,this);
-	mMessageDispatch->RegisterMessageCallback(opIsmBroadcastGalaxy,this);
-	mMessageDispatch->RegisterMessageCallback(opIsmScheduleShutdown,this);
-	mMessageDispatch->RegisterMessageCallback(opIsmCancelShutdown,this);
+	mMessageDispatch->RegisterMessageCallback(opClusterClientConnect,std::bind(&ChatManager::_processClusterClientConnect, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opClusterClientDisconnect,std::bind(&ChatManager::_processClusterClientDisconnect, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opClusterZoneTransferCharacter,std::bind(&ChatManager::_processZoneTransfer, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatNotifySceneReady,std::bind(&ChatManager::_processWhenLoaded, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatRequestRoomlist,std::bind(&ChatManager::_processRoomlistRequest, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatCreateRoom,std::bind(&ChatManager::_processCreateRoom, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatDestroyRoom,std::bind(&ChatManager::_processDestroyRoom, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatEnterRoomById,std::bind(&ChatManager::_processEnterRoomById, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatQueryRoom,std::bind(&ChatManager::_processRoomQuery, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatRoomMessage, std::bind(&ChatManager::_processRoomMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatSendToRoom,std::bind(&ChatManager::_processSendToRoom, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatAddModeratorToRoom,std::bind(&ChatManager::_processAddModeratorToRoom, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatInviteAvatarToRoom,std::bind(&ChatManager::_processInviteAvatarToRoom, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatUninviteFromRoom,std::bind(&ChatManager::_processUninviteAvatarFromRoom, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatRemoveModFromRoom,std::bind(&ChatManager::_processRemoveModFromRoom, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatRemoveAvatarFromRoom,std::bind(&ChatManager::_processRemoveAvatarFromRoom, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatBanAvatarFromRoom,std::bind(&ChatManager::_processBanAvatarFromRoom, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatUnbanAvatarFromRoom,std::bind(&ChatManager::_processUnbanAvatarFromRoom, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatAvatarId,std::bind(&ChatManager::_processAvatarId, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatInstantMessageToCharacter,std::bind(&ChatManager::_processInstantMessageToCharacter, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatPersistentMessageToServer,std::bind(&ChatManager::_processPersistentMessageToServer, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatRequestPersistentMessage,std::bind(&ChatManager::_processRequestPersistentMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatDeletePersistentMessage,std::bind(&ChatManager::_processDeletePersistentMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatFriendlistUpdate,std::bind(&ChatManager::_processFriendlistUpdate, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opChatAddFriend,std::bind(&ChatManager::_processAddFriend, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opNotifyChatAddFriend,std::bind(&ChatManager::_processNotifyChatAddFriend, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opNotifyChatRemoveFriend,std::bind(&ChatManager::_processNotifyChatRemoveFriend, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opNotifyChatAddIgnore,std::bind(&ChatManager::_processNotifyChatAddIgnore, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opNotifyChatRemoveIgnore,std::bind(&ChatManager::_processNotifyChatRemoveIgnore, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opNotifyChatFindFriend,std::bind(&ChatManager::_processFindFriendMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opFindFriendSendPosition,std::bind(&ChatManager::_processFindFriendGotPosition, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opSendSystemMailMessage,std::bind(&ChatManager::_processSystemMailMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opIsmGroupSay,std::bind(&ChatManager::_processGroupSaySend, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opIsmBroadcastGalaxy,std::bind(&ChatManager::_processBroadcastGalaxy, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opIsmScheduleShutdown,std::bind(&ChatManager::_processScheduleShutdown, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opIsmCancelShutdown,std::bind(&ChatManager::_processCancelScheduledShutdown, this, std::placeholders::_1, std::placeholders::_2));
 }
 
 //======================================================================================================================
@@ -371,42 +316,24 @@ void ChatManager::_unregisterCallbacks()
 	mMessageDispatch->UnregisterMessageCallback(opChatBanAvatarFromRoom);
 	mMessageDispatch->UnregisterMessageCallback(opChatUnbanAvatarFromRoom);
 	mMessageDispatch->UnregisterMessageCallback(opChatAvatarId);
-
 	mMessageDispatch->UnregisterMessageCallback(opChatInstantMessageToCharacter);
-
 	mMessageDispatch->UnregisterMessageCallback(opChatPersistentMessageToServer);
 	mMessageDispatch->UnregisterMessageCallback(opChatRequestPersistentMessage);
 	mMessageDispatch->UnregisterMessageCallback(opChatDeletePersistentMessage);
-
 	mMessageDispatch->UnregisterMessageCallback(opChatFriendlistUpdate);
 	mMessageDispatch->UnregisterMessageCallback(opChatAddFriend);
-
 	mMessageDispatch->UnregisterMessageCallback(opNotifyChatAddFriend);
 	mMessageDispatch->UnregisterMessageCallback(opNotifyChatRemoveFriend);
 	mMessageDispatch->UnregisterMessageCallback(opNotifyChatAddIgnore);
 	mMessageDispatch->UnregisterMessageCallback(opNotifyChatRemoveIgnore);
 	mMessageDispatch->UnregisterMessageCallback(opNotifyChatFindFriend);
 	mMessageDispatch->UnregisterMessageCallback(opFindFriendSendPosition);
-
 	mMessageDispatch->UnregisterMessageCallback(opSendSystemMailMessage);
-
 	//mMessageDispatch->UnregisterMessageCallback(opConnectPlayerMessage);
 	mMessageDispatch->UnregisterMessageCallback(opIsmGroupSay);
 	mMessageDispatch->UnregisterMessageCallback(opIsmBroadcastGalaxy);
 	mMessageDispatch->UnregisterMessageCallback(opIsmScheduleShutdown);
 	mMessageDispatch->UnregisterMessageCallback(opIsmCancelShutdown);
-}
-
-//======================================================================================================================
-
-void ChatManager::handleDispatchMessage(uint32 opcode,Message* message,DispatchClient* client)
-{
-	CommandMap::iterator it = mCommandMap.find(opcode);
-
-	if(it != mCommandMap.end())
-		(this->*((*it).second))(message,client);
-	else
-		gLogger->log(LogManager::NOTICE,"Unhandled DispatchMsg %u",opcode);
 }
 
 //======================================================================================================================
@@ -570,7 +497,7 @@ void ChatManager::handleDatabaseJobComplete(void* ref,DatabaseResult* result)
 		case ChatMailQuery_PlayerIgnores:
 		{
 			Message* newMessage;
-			string	name;
+			BString	name;
 			DataBinding* binding = mDatabase->CreateDataBinding(1);
 			binding->addField(DFT_bstring,0,64);
 
@@ -596,7 +523,7 @@ void ChatManager::handleDatabaseJobComplete(void* ref,DatabaseResult* result)
 			// If receiver have sender ignored, auto delete mail (don't send it and remove from db).
 			if (asyncContainer->mSender != NULL)
 			{
-				string ignoreName = asyncContainer->mSender->getName();
+				BString ignoreName = asyncContainer->mSender->getName();
 				ignoreName.toLower();
 
 				// check receivers ignorelist.
@@ -687,7 +614,7 @@ void ChatManager::handleDatabaseJobComplete(void* ref,DatabaseResult* result)
 
 		case ChatQuery_PlayerFriends:
 		{
-			string	name;
+			BString	name;
 			Player*	player = asyncContainer->mReceiver;
 
 			DataBinding* binding = mDatabase->CreateDataBinding(1);
@@ -724,7 +651,7 @@ void ChatManager::handleDatabaseJobComplete(void* ref,DatabaseResult* result)
 
 		case ChatQuery_PlayerIgnores:
 		{
-			string	name;
+			BString	name;
 			Player*	player = asyncContainer->mReceiver;
 
 			DataBinding* binding = mDatabase->CreateDataBinding(1);
@@ -799,7 +726,7 @@ void ChatManager::handleDatabaseJobComplete(void* ref,DatabaseResult* result)
 
 		case ChatQuery_QueryFirstName:
 		{
-			string	name;
+			BString	name;
 			//Player*	mReceiver = asyncContainer->mReceiver;
 
 			DataBinding* binding = mDatabase->CreateDataBinding(1);
@@ -828,7 +755,7 @@ void ChatManager::handleDatabaseJobComplete(void* ref,DatabaseResult* result)
 
 				for (uint i = 0; i < count; i++)
 				{
-					string* name = new string();
+					BString* name = new BString();
 					result->GetNextRow(binding, name);
 					asyncContainer->mChannel->addModerator(name);
 					delete name;
@@ -847,7 +774,7 @@ void ChatManager::handleDatabaseJobComplete(void* ref,DatabaseResult* result)
 
 				for (uint i = 0; i < count; i++)
 				{
-					string* name = new string();
+					BString* name = new BString();
 					result->GetNextRow(binding, name);
 					asyncContainer->mChannel->banUser(name);
 					delete name;
@@ -864,7 +791,7 @@ void ChatManager::handleDatabaseJobComplete(void* ref,DatabaseResult* result)
 
 				for (uint i = 0; i < count; i++)
 				{
-					string* name = new string();
+					BString* name = new BString();
 					result->GetNextRow(binding, name);
 					asyncContainer->mChannel->addInvitedUser(name);
 					delete name;
@@ -900,7 +827,7 @@ void ChatManager::handleDatabaseJobComplete(void* ref,DatabaseResult* result)
 
 		case ChatQuery_PlanetNames:
 		{
-			string			tmp;
+			BString			tmp;
 			DataBinding*	nameBinding = mDatabase->CreateDataBinding(1);
 			nameBinding->addField(DFT_bstring,0,255,0);
 
@@ -1209,11 +1136,11 @@ void ChatManager::_processRoomlistRequest(Message* message,DispatchClient* clien
 
 void ChatManager::_processCreateRoom(Message* message,DispatchClient* client)
 {
-	string path;
-	string title;
+	BString path;
+	BString title;
 
 	Player* player = getPlayerByAccId(client->getAccountId());
-	string* playername = new BString(BSTRType_ANSI, player->getName().getLength());
+	BString* playername = new BString(BSTRType_ANSI, player->getName().getLength());
 	strcpy(playername->getAnsi(), player->getName().getAnsi());
 
 	uint8 publicFlag = message->getUint8();
@@ -1224,7 +1151,7 @@ void ChatManager::_processCreateRoom(Message* message,DispatchClient* client)
 	uint32 requestId = message->getUint32();
 
 	uint32 index = 5 + mGalaxyName.getLength();
-	string modpath;
+	BString modpath;
 	path.substring(modpath, static_cast<uint16>(index), path.getLength());
 
 	// modpath.toLower();
@@ -1302,7 +1229,7 @@ void ChatManager::_processDestroyRoom(Message* message,DispatchClient* client)
 	}
 
 	// This is me destroying the channel
-	string playername = BString(getPlayerByAccId(client->getAccountId())->getName().getAnsi());
+	BString playername = BString(getPlayerByAccId(client->getAccountId())->getName().getAnsi());
 
 	// Lowercase...
 	playername.toLower();
@@ -1372,8 +1299,8 @@ void ChatManager::_processDestroyRoom(Message* message,DispatchClient* client)
 
 void ChatManager::_processRoomQuery(Message* message,DispatchClient* client)
 {
-	string roomname;
-	string path;
+	BString roomname;
+	BString path;
 
 	uint32 requestId = message->getUint32();
 	message->getStringAnsi(path);
@@ -1403,11 +1330,11 @@ void ChatManager::_processRoomMessage(Message* message,DispatchClient* client)
 //
 void ChatManager::_processInstantMessageToCharacter(Message* message,DispatchClient* client)
 {
-	string mainCategory; // "SWG"
-	string serverName;   // (galaxy name)
-	string targetName;   // recipient
+	BString mainCategory; // "SWG"
+	BString serverName;   // (galaxy name)
+	BString targetName;   // recipient
 	targetName.setLength(256);
-	string msgText;
+	BString msgText;
 	msgText.setType(BSTRType_Unicode16);
 	msgText.setLength(512);
 	uint32 tellId = 0;
@@ -1571,7 +1498,7 @@ void ChatManager::_processSendToRoom(Message* message,DispatchClient* client)
 		return;
 	}
 
-	string msg;
+	BString msg;
 	msg.setType(BSTRType_Unicode16);
 	msg.setLength(512);
 
@@ -1588,8 +1515,8 @@ void ChatManager::_processSendToRoom(Message* message,DispatchClient* client)
 	}
 
 	// We use two versions of names, one with the real spelling and one with pure lowercase.
-	string sender = BString(player->getName().getAnsi());
-	string realSenderName = sender;
+	BString sender = BString(player->getName().getAnsi());
+	BString realSenderName = sender;
 	sender.toLower();
 
 //	uint32 errorCode = 0;
@@ -1617,11 +1544,11 @@ void ChatManager::_processSendToRoom(Message* message,DispatchClient* client)
 void ChatManager::_processAddModeratorToRoom(Message* message,DispatchClient* client)
 {
 	gLogger->log(LogManager::DEBUG,"Add moderator to room");
-	string playerName;
-	string roompath;
-	string roomname;
-	string game;
-	string server;
+	BString playerName;
+	BString roompath;
+	BString roomname;
+	BString game;
+	BString server;
 
 	message->getStringAnsi(game);
 	message->getStringAnsi(server);
@@ -1644,16 +1571,16 @@ void ChatManager::_processAddModeratorToRoom(Message* message,DispatchClient* cl
 
 	// We use two versions of names, one with the real spelling and one with pure lowercase.
 	playerName.toLower();
-	string sender = BString(getPlayerByAccId(client->getAccountId())->getName().getAnsi());
-	string realSenderName = sender;
+	BString sender = BString(getPlayerByAccId(client->getAccountId())->getName().getAnsi());
+	BString realSenderName = sender;
 	sender.toLower();
 
 	uint32 errorCode = 0;
 
 #ifdef DISP_REAL_FIRST_NAME
 	// Get real first name.
-	string* newName = getFirstName(playerName);
-	string realPlayerName;
+	BString* newName = getFirstName(playerName);
+	BString realPlayerName;
 
 	if (newName->getLength() == 0)
 	{
@@ -1668,7 +1595,7 @@ void ChatManager::_processAddModeratorToRoom(Message* message,DispatchClient* cl
 	delete newName;
 #else
 	// Lowercase
-	string realPlayerName = playerName;
+	BString realPlayerName = playerName;
 	realSenderName.toLower();
 
 	// Well, the player don't have to be online.
@@ -1723,12 +1650,12 @@ void ChatManager::_processAddModeratorToRoom(Message* message,DispatchClient* cl
 void ChatManager::_processInviteAvatarToRoom(Message* message,DispatchClient* client)
 {
 	gLogger->log(LogManager::DEBUG,"Invite avatar to room");
-	string nameOfInvitedPlayer;
-	string roompath;
-	string roomname;
-	string game;
-	string server;
-	string playerName;
+	BString nameOfInvitedPlayer;
+	BString roompath;
+	BString roomname;
+	BString game;
+	BString server;
+	BString playerName;
 
 	message->getStringAnsi(game);
 	message->getStringAnsi(server);
@@ -1748,15 +1675,15 @@ void ChatManager::_processInviteAvatarToRoom(Message* message,DispatchClient* cl
 
 	// We use two versions of names, one with the real spelling and one with pure lowercase.
 	playerName.toLower();
-	string sender = BString(getPlayerByAccId(client->getAccountId())->getName().getAnsi());
-	string realSenderName = sender;
+	BString sender = BString(getPlayerByAccId(client->getAccountId())->getName().getAnsi());
+	BString realSenderName = sender;
 	sender.toLower();
 
 	uint32 errorCode = 0;
 
 #ifdef DISP_REAL_FIRST_NAME
-	string* newName = getFirstName(playerName);
-	string realPlayerName;
+	BString* newName = getFirstName(playerName);
+	BString realPlayerName;
 
 	if (newName->getLength() == 0)
 	{
@@ -1771,7 +1698,7 @@ void ChatManager::_processInviteAvatarToRoom(Message* message,DispatchClient* cl
 	delete newName;
 #else
 	// Lowercase
-	string realPlayerName = playerName;
+	BString realPlayerName = playerName;
 	realSenderName.toLower();
 
 	// Well, the player don't have to be online.
@@ -1833,12 +1760,12 @@ void ChatManager::_processInviteAvatarToRoom(Message* message,DispatchClient* cl
 void ChatManager::_processUninviteAvatarFromRoom(Message* message, DispatchClient* client)
 {
 	gLogger->log(LogManager::DEBUG,"Uninvite avatar from room");
-	string nameOfInvitedPlayer;
-	string roompath;
-	string roomname;
-	string game;
-	string server;
-	string playerName;
+	BString nameOfInvitedPlayer;
+	BString roompath;
+	BString roomname;
+	BString game;
+	BString server;
+	BString playerName;
 
 	message->getStringAnsi(game);
 	message->getStringAnsi(server);
@@ -1859,16 +1786,16 @@ void ChatManager::_processUninviteAvatarFromRoom(Message* message, DispatchClien
 
 	// We use two versions of names, one with the real spelling and one with pure lowercase.
 	playerName.toLower();
-	string sender = BString(getPlayerByAccId(client->getAccountId())->getName().getAnsi());
-	string realSenderName = sender;
+	BString sender = BString(getPlayerByAccId(client->getAccountId())->getName().getAnsi());
+	BString realSenderName = sender;
 	sender.toLower();
 
 	uint32 errorCode = 0;
 
 #ifdef DISP_REAL_FIRST_NAME
 	// Get real first name.
-	string* newName = getFirstName(playerName);
-	string realPlayerName;
+	BString* newName = getFirstName(playerName);
+	BString realPlayerName;
 
 	if (newName->getLength() == 0)
 	{
@@ -1883,7 +1810,7 @@ void ChatManager::_processUninviteAvatarFromRoom(Message* message, DispatchClien
 	delete newName;
 #else
 	// Lowercase
-	string realPlayerName = playerName;
+	BString realPlayerName = playerName;
 	realSenderName.toLower();
 
 	// Well, the player don't have to be online.
@@ -1943,11 +1870,11 @@ void ChatManager::_processUninviteAvatarFromRoom(Message* message, DispatchClien
 void ChatManager::_processRemoveModFromRoom(Message* message,DispatchClient* client)
 {
 	gLogger->log(LogManager::DEBUG,"Remove Moderator from room");
-	string playerName;
-	string roompath;
-	string roomname;
-	string game;
-	string server;
+	BString playerName;
+	BString roompath;
+	BString roomname;
+	BString game;
+	BString server;
 
 	message->getStringAnsi(game);
 	message->getStringAnsi(server);
@@ -1967,16 +1894,16 @@ void ChatManager::_processRemoveModFromRoom(Message* message,DispatchClient* cli
 
 	// We use two versions of names, one with the real spelling and one with pure lowercase.
 	playerName.toLower();
-	string sender = BString(getPlayerByAccId(client->getAccountId())->getName().getAnsi());
-	string realSenderName = sender;
+	BString sender = BString(getPlayerByAccId(client->getAccountId())->getName().getAnsi());
+	BString realSenderName = sender;
 	sender.toLower();
 
 	uint32 errorCode = 0;
 
 #ifdef DISP_REAL_FIRST_NAME
 	// Get real first name.
-	string* newName = getFirstName(playerName);
-	string realPlayerName;
+	BString* newName = getFirstName(playerName);
+	BString realPlayerName;
 
 	if (newName->getLength() == 0)
 	{
@@ -1991,7 +1918,7 @@ void ChatManager::_processRemoveModFromRoom(Message* message,DispatchClient* cli
 	delete newName;
 #else
 	// Lowercase
-	string realPlayerName = playerName;
+	BString realPlayerName = playerName;
 	realSenderName.toLower();
 
 	// Well, the player don't have to be online.
@@ -2057,11 +1984,11 @@ void ChatManager::_processRemoveModFromRoom(Message* message,DispatchClient* cli
 
 void ChatManager::_processRemoveAvatarFromRoom(Message* message,DispatchClient* client)
 {
-	string playerName;
-	string roompath;
-	string roomname;
-	string game;
-	string server;
+	BString playerName;
+	BString roompath;
+	BString roomname;
+	BString game;
+	BString server;
 
 	message->getStringAnsi(game);
 	message->getStringAnsi(server);
@@ -2100,11 +2027,11 @@ void ChatManager::_processRemoveAvatarFromRoom(Message* message,DispatchClient* 
 void ChatManager::_processBanAvatarFromRoom(Message* message,DispatchClient* client)
 {
 	gLogger->log(LogManager::DEBUG,"Ban Avatar from room");
-	string playerName;
-	string roompath;
-	string roomname;
-	string game;
-	string server;
+	BString playerName;
+	BString roompath;
+	BString roomname;
+	BString game;
+	BString server;
 
 	message->getStringAnsi(game);
 	message->getStringAnsi(server);
@@ -2124,16 +2051,16 @@ void ChatManager::_processBanAvatarFromRoom(Message* message,DispatchClient* cli
 
 	// We use two versions of names, one with the real spelling and one with pure lowercase.
 	playerName.toLower();
-	string sender = BString(getPlayerByAccId(client->getAccountId())->getName().getAnsi());
-	string realSenderName = sender;
+	BString sender = BString(getPlayerByAccId(client->getAccountId())->getName().getAnsi());
+	BString realSenderName = sender;
 	sender.toLower();
 
 	uint32 errorCode = 0;
 
 #ifdef DISP_REAL_FIRST_NAME
 	// Get real first name.
-	string* newName = getFirstName(playerName);
-	string realPlayerName;
+	BString* newName = getFirstName(playerName);
+	BString realPlayerName;
 
 	if (newName->getLength() == 0)
 	{
@@ -2148,7 +2075,7 @@ void ChatManager::_processBanAvatarFromRoom(Message* message,DispatchClient* cli
 	delete newName;
 #else
 	// Lowercase
-	string realPlayerName = playerName;
+	BString realPlayerName = playerName;
 	realSenderName.toLower();
 
 	// Well, the player don't have to be online.
@@ -2230,11 +2157,11 @@ void ChatManager::_processBanAvatarFromRoom(Message* message,DispatchClient* cli
 
 void ChatManager::_processUnbanAvatarFromRoom(Message* message,DispatchClient* client)
 {
-	string playerName;
-	string roompath;
-	string roomname;
-	string game;
-	string server;
+	BString playerName;
+	BString roompath;
+	BString roomname;
+	BString game;
+	BString server;
 
 	message->getStringAnsi(game);
 	message->getStringAnsi(server);
@@ -2254,16 +2181,16 @@ void ChatManager::_processUnbanAvatarFromRoom(Message* message,DispatchClient* c
 
 	// We use two versions of names, one with the real spelling and one with pure lowercase.
 	playerName.toLower();
-	string sender = BString(getPlayerByAccId(client->getAccountId())->getName().getAnsi());
-	string realSenderName = sender;
+	BString sender = BString(getPlayerByAccId(client->getAccountId())->getName().getAnsi());
+	BString realSenderName = sender;
 	sender.toLower();
 
 	uint32 errorCode = 0;
 
 #ifdef DISP_REAL_FIRST_NAME
 	// Get real first name.
-	string* newName = getFirstName(playerName);
-	string realPlayerName;
+	BString* newName = getFirstName(playerName);
+	BString realPlayerName;
 
 	if (newName->getLength() == 0)
 	{
@@ -2278,7 +2205,7 @@ void ChatManager::_processUnbanAvatarFromRoom(Message* message,DispatchClient* c
 	delete newName;
 #else
 	// Lowercase
-	string realPlayerName = playerName;
+	BString realPlayerName = playerName;
 	realSenderName.toLower();
 
 	// Well, the player don't have to be online.
@@ -2360,18 +2287,18 @@ void ChatManager::_processSystemMailMessage(Message* message,DispatchClient* cli
 
 	/* uint64 PlayerID = */message->getUint64();
 	uint64 ReceiverID = message->getUint64();
-	string Sender;
+	BString Sender;
 	Sender.setLength(128);
 	message->getStringAnsi(Sender);
 
-	string msgSubject;
+	BString msgSubject;
 	msgSubject.setLength(128);
 	message->getStringAnsi(msgSubject);
 
-	string msgText(BSTRType_Unicode16,2048);
+	BString msgText(BSTRType_Unicode16,2048);
 	message->getStringUnicode16(msgText);
 
-	string attachmentData(BSTRType_Unicode16,2048);
+	BString attachmentData(BSTRType_Unicode16,2048);
 	message->getStringUnicode16(attachmentData);
 
 	Mail* mail = new Mail();
@@ -2398,7 +2325,7 @@ void ChatManager::_processSystemMailMessage(Message* message,DispatchClient* cli
 
 
 }
-void ChatManager::_PersistentMessagebySystem(Mail* mail,DispatchClient* client, string receiverStr)
+void ChatManager::_PersistentMessagebySystem(Mail* mail,DispatchClient* client, BString receiverStr)
 {
 	Player* sender		= NULL;
 	Player* receiver	= NULL;
@@ -2476,13 +2403,13 @@ void ChatManager::_PersistentMessagebySystem(Mail* mail,DispatchClient* client, 
 
 void ChatManager::_processPersistentMessageToServer(Message* message,DispatchClient* client)
 {
-	string msgText;      // mail text
+	BString msgText;      // mail text
 	msgText.setType(BSTRType_Unicode16);
 	msgText.setLength(8192);
-	string msgSubject;   // mail subject
+	BString msgSubject;   // mail subject
 	msgSubject.setType(BSTRType_Unicode16);
 	msgSubject.setLength(512);
-	string targetName;   // recipient
+	BString targetName;   // recipient
 	targetName.setLength(256);
 	uint32 mailId;       // mail count of sender, sent in this session
 	//uint32 targetStatus = 0; // 0 = exists, 4 = doesn't exist
@@ -2507,7 +2434,7 @@ void ChatManager::_processPersistentMessageToServer(Message* message,DispatchCli
 
 	message->getStringUnicode16(msgText);
 
-	string attachmentData;
+	BString attachmentData;
 	message->getStringUnicode16(attachmentData);
 
 	mailId = message->getUint32();
@@ -2658,7 +2585,7 @@ Channel* ChatManager::getChannelById(uint32 id)
 
 //======================================================================================================================
 
-Channel* ChatManager::getChannelByName(string name)
+Channel* ChatManager::getChannelByName(BString name)
 {
 	ChannelNameMap::iterator iter = mChannelNameMap.find(name.getCrc());
 
@@ -2672,7 +2599,7 @@ Channel* ChatManager::getChannelByName(string name)
 
 void ChatManager::_processNotifyChatAddFriend(Message* message,DispatchClient* client)
 {
-	string name;
+	BString name;
 
 	message->getStringUnicode16(name);
 	name.convert(BSTRType_ANSI);
@@ -2703,7 +2630,7 @@ void ChatManager::_processNotifyChatAddFriend(Message* message,DispatchClient* c
 
 void ChatManager::_processNotifyChatRemoveFriend(Message* message,DispatchClient* client)
 {
-	string name;
+	BString name;
 
 	message->getStringUnicode16(name);
 	name.convert(BSTRType_ANSI);
@@ -2738,7 +2665,7 @@ Player* ChatManager::getPlayerByAccId(uint32 accId)
 
 //======================================================================================================================
 
-Player* ChatManager::getPlayerByName(string name)
+Player* ChatManager::getPlayerByName(BString name)
 {
 	name.toLower();
 	PlayerNameMap::iterator nameIt = mPlayerNameMap.find(name.getCrc());
@@ -2833,7 +2760,7 @@ void ChatManager::checkOnlineFriends(Player* player)
 void ChatManager::updateFriendsOnline(Player* player,bool action)
 {
 	PlayerList::iterator playerIt = mPlayerList.begin();
-	string loweredName = player->getName().getAnsi();
+	BString loweredName = player->getName().getAnsi();
 	loweredName.toLower();
 	uint32 loweredNameCrc = loweredName.getCrc();
 	while(playerIt != mPlayerList.end())
@@ -2854,9 +2781,9 @@ void ChatManager::updateFriendsOnline(Player* player,bool action)
 			   sprintf(timebuf,"%s","");
 			}
 			*/
-			string time = ctime(&ltime);
+			BString time = ctime(&ltime);
 
-			string name = player->getName();
+			BString name = player->getName();
 			name.convert(BSTRType_Unicode16);
 			time.convert(BSTRType_Unicode16);
 			if(action)
@@ -2877,7 +2804,7 @@ void ChatManager::updateFriendsOnline(Player* player,bool action)
 
 void ChatManager::_processNotifyChatAddIgnore(Message* message,DispatchClient* client)
 {
-	string name;
+	BString name;
 
 	message->getStringUnicode16(name);
 	name.convert(BSTRType_ANSI);
@@ -2901,7 +2828,7 @@ void ChatManager::_processNotifyChatAddIgnore(Message* message,DispatchClient* c
 
 void ChatManager::_processNotifyChatRemoveIgnore(Message* message,DispatchClient* client)
 {
-	string name;
+	BString name;
 
 	message->getStringUnicode16(name);
 	name.convert(BSTRType_ANSI);
@@ -2937,7 +2864,7 @@ void ChatManager::_processFindFriendGotPosition(Message* message,DispatchClient*
 	Player* friendObject = getPlayerbyId(friendPlayer);
 	Player* playerObject = getPlayerbyId(player);
 
-	string unicodeName = friendObject->getName();
+	BString unicodeName = friendObject->getName();
 	unicodeName.convert(BSTRType_Unicode16);
 	friendObject->setPositionX(x);
 	friendObject->setPositionZ(z);
@@ -2954,13 +2881,13 @@ void ChatManager::_processFindFriendGotPosition(Message* message,DispatchClient*
 //////////////////////////////////////////////////////////////////////////////////
 void ChatManager::_processFindFriendMessage(Message* message,DispatchClient* client)
 {
-	string friendName(BSTRType_Unicode16,128);
+	BString friendName(BSTRType_Unicode16,128);
 	message->getStringUnicode16(friendName);
 
 	int8			sql[1024],end[16],*sqlPointer;
 
 	Player* playerObject = getPlayerByAccId(message->getAccountId());
-	string unicodeName = friendName;
+	BString unicodeName = friendName;
 	friendName.convert(BSTRType_ANSI);
 
 	ChatAsyncContainer* asyncContainer = new ChatAsyncContainer(ChatQuery_FindFriend);
@@ -2994,10 +2921,10 @@ Player* ChatManager::getPlayerbyId(uint64 id)
 	return NULL;
 }
 
-void ChatManager::_handleFindFriendDBReply(Player* player,uint64 retCode,string friendName)
+void ChatManager::_handleFindFriendDBReply(Player* player,uint64 retCode,BString friendName)
 {
 
-	string loweredName = friendName.getAnsi();
+	BString loweredName = friendName.getAnsi();
 	loweredName.toLower();
 	uint32 loweredNameCrc = loweredName.getCrc();
 
@@ -3061,7 +2988,7 @@ void ChatManager::_handleFindFriendDBReply(Player* player,uint64 retCode,string 
 
 //======================================================================================================================
 
-bool ChatManager::isValidName(string name)
+bool ChatManager::isValidName(BString name)
 {
 	// DatabaseResult* result = mDatabase->ExecuteSql("SELECT id FROM characters WHERE LCASE(firstname) = '%s';", name.getAnsi());
 	int8 sql[128];
@@ -3078,7 +3005,7 @@ bool ChatManager::isValidName(string name)
 
 //======================================================================================================================
 
-bool ChatManager::isValidExactName(string name)
+bool ChatManager::isValidExactName(BString name)
 {
 	int8 sql[128];
 	mDatabase->Escape_String(sql, name.getAnsi(), name.getLength());
@@ -3092,23 +3019,23 @@ bool ChatManager::isValidExactName(string name)
 
 //======================================================================================================================
 
-string* ChatManager::getFirstName(string& name)
+BString* ChatManager::getFirstName(BString& name)
 {
-	string* myName = NULL;
-	// string realPlayerName;
+	BString* myName = NULL;
+	// BString realPlayerName;
 
 	// Assume player is online.
 	Player* realPlayer = getPlayerByName(name);
 	if (realPlayer)
 	{
-		myName = new string(realPlayer->getName().getAnsi());
+		myName = new BString(realPlayer->getName().getAnsi());
 		// myName(name);
 		// myName->initRawBSTR(realPlayer->getName().getAnsi(), BSTRType_ANSI);
 	}
 	else
 	{
 		// Get first name the hard way...
-		myName = new string();
+		myName = new BString();
 		DataBinding* binding = mDatabase->CreateDataBinding(1);
 		binding->addField(DFT_bstring,0,64);
 		int8 sql[128];
@@ -3142,7 +3069,7 @@ void ChatManager::_processGroupSaySend(Message* message,DispatchClient* client)
 		return;
 	}
 
-	string msg;
+	BString msg;
 	msg.setType(BSTRType_Unicode16);
 	msg.setLength(512);
 
@@ -3155,7 +3082,7 @@ void ChatManager::_processGroupSaySend(Message* message,DispatchClient* client)
 		return;
 	}
 
-	string sender = BString(player->getName());
+	BString sender = BString(player->getName());
 
 	// Get the group and corresponding channel.
 	GroupObject* group;
@@ -3199,7 +3126,7 @@ void ChatManager::_processBroadcastGalaxy(Message* message,DispatchClient* clien
 		return;
 	}
 
-	string msg;
+	BString msg;
 	msg.setType(BSTRType_Unicode16);
 	msg.setLength(512);
 
@@ -3231,7 +3158,7 @@ void ChatManager::_processScheduleShutdown(Message* message, DispatchClient* cli
 
 	message->ResetIndex();
 
-	string msg;
+	BString msg;
 	msg.setType(BSTRType_Unicode16);
 	msg.setLength(512);
 
@@ -3277,7 +3204,7 @@ void ChatManager::_processCancelScheduledShutdown(Message* message, DispatchClie
 
 	message->ResetIndex();
 
-	string msg;
+	BString msg;
 	msg.setType(BSTRType_Unicode16);
 	msg.setLength(512);
 

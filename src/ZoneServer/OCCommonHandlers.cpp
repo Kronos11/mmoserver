@@ -83,18 +83,18 @@ void ObjectController::_handleBoardTransport(uint64 targetId,Message* message,Ob
 
 	if(playerObject->getPosture() == CreaturePosture_SkillAnimating)
 	{
-		gMessageLib->sendSystemMessage(playerObject,L"", "error_message", "wrong_state");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("error_message", "wrong_state"), playerObject);
 		return;
 	}
 
-	string str;
+	BString str;
 	message->getStringUnicode16(str);
 	str.convert(BSTRType_ANSI);
 	str.toLower();
 
 	if((str.getCrc() != BString("transport").getCrc()))
 	{
-		gMessageLib->sendSystemMessage(playerObject,L"","travel","boarding_what_shuttle");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("travel", "boarding_what_shuttle"), playerObject);
 		return;
 	}
 
@@ -110,13 +110,13 @@ void ObjectController::_handleBoardTransport(uint64 targetId,Message* message,Ob
 			// in range check
 			if(playerObject->getParentId() !=  shuttle->getParentId())
 			{
-				gMessageLib->sendSystemMessage(playerObject,L"","travel","boarding_too_far");
+                gMessageLib->SendSystemMessage(::common::OutOfBand("travel", "boarding_too_far"), playerObject);
 				return;
 			}
 
 			if (!shuttle->availableInPort())
 			{
-				gMessageLib->sendSystemMessage(playerObject,L"","travel","shuttle_not_available");
+                gMessageLib->SendSystemMessage(::common::OutOfBand("travel", "shuttle_not_available"), playerObject);
 				return;
 			}
 
@@ -127,8 +127,8 @@ void ObjectController::_handleBoardTransport(uint64 targetId,Message* message,Ob
 
 		++it;
 	}
-
-	gMessageLib->sendSystemMessage(playerObject,L"","structure/structure_messages","boarding_what_shuttle");
+    
+    gMessageLib->SendSystemMessage(::common::OutOfBand("structure/structure_messages", "boarding_what_shuttle"), playerObject);
 }
 
 //=============================================================================
@@ -145,7 +145,7 @@ void ObjectController::_handleOpenContainer(uint64 targetId,Message* message,Obj
 	{
 		if(glm::distance(playerObject->getWorldPosition(), itemObject->getWorldPosition()) > 10)
 		{
-			gMessageLib->sendSystemMessage(playerObject, L"", "system_msg", "out_of_range");
+            gMessageLib->SendSystemMessage(::common::OutOfBand("system_msg", "out_of_range"), playerObject);
 			return;
 		}
 
@@ -184,7 +184,7 @@ void ObjectController::_handleOpenContainer(uint64 targetId,Message* message,Obj
 		if (!aContainer)
 		{
 			// STF: container_error_message Key: container8 does not seem to be working, using this custom string temperary.
-			gMessageLib->sendSystemMessage(playerObject, L"You do not have permission to access that container.");
+			gMessageLib->SendSystemMessage(L"You do not have permission to access that container.", playerObject);
 		}
 		else
 		{
@@ -229,7 +229,7 @@ void ObjectController::_handleTransferItem(uint64 targetId,Message* message,Obje
 	Object*			itemObject		=	gWorldManager->getObjectById(targetId);
 	Inventory*		inventory		=	dynamic_cast<Inventory*>(playerObject->getEquipManager()->getEquippedObject(CreatureEquipSlot_Inventory));
 
-	string			dataStr;
+	BString			dataStr;
 	uint64			targetContainerId;
 	uint32			linkType;
 	float			x,y,z;
@@ -315,11 +315,11 @@ void ObjectController::_handleTransferItem(uint64 targetId,Message* message,Obje
 
 	gLogger->log(LogManager::DEBUG,"ObjController::_handleTransferItemMisc:TargetContainer has approved :)");
 	
-	// get ourselves the target container 
+	// get ourselves the current Owner container 
 	// please note THIS IS ONLY SUCCESFUL FOR TANGIBLE OBJECT BASED CONTAINERS -> no cells
-	TangibleObject* parentContainer = dynamic_cast<TangibleObject*>(gWorldManager->getObjectById(tangible->getParentId()));
-	if(!parentContainer)
-		parentContainer = inventory;
+	
+	//thats the parent
+	ObjectContainer* parentContainer = dynamic_cast<ObjectContainer*>(gWorldManager->getObjectById(tangible->getParentId()));
 
 	if(!checkContainingContainer(tangible->getParentId(), playerObject->getId()))
 	{
@@ -373,13 +373,13 @@ void ObjectController::_handleTransferItem(uint64 targetId,Message* message,Obje
 		itemObject->setParentId(targetContainerId,linkType,playerObject,false); 
 		itemObject->updateWorldPosition();
 		
-		/*ResourceContainer* rc = dynamic_cast<ResourceContainer*>(itemObject);
+		ResourceContainer* rc = dynamic_cast<ResourceContainer*>(itemObject);
 
 		if(rc)
 			mDatabase->ExecuteSqlAsync(0,0,"UPDATE resource_containers SET parent_id ='%I64u', oY='%f', oZ='%f', oW='%f', x='%f', y='%f', z='%f' WHERE id='%I64u'",itemObject->getParentId(), itemObject->mDirection.y, itemObject->mDirection.z, itemObject->mDirection.w, itemObject->mPosition.x, itemObject->mPosition.y, itemObject->mPosition.z, itemObject->getId());
 		else
 			mDatabase->ExecuteSqlAsync(0,0,"UPDATE items SET parent_id ='%I64u', oY='%f', oZ='%f', oW='%f', x='%f', y='%f', z='%f' WHERE id='%I64u'",itemObject->getParentId(), itemObject->mDirection.y, itemObject->mDirection.z, itemObject->mDirection.w, itemObject->mPosition.x, itemObject->mPosition.y, itemObject->mPosition.z, itemObject->getId());
-		  */
+		 
 		
 		cell->addObjectSecure(itemObject,playerObject->getKnownPlayers());
 		
@@ -390,8 +390,9 @@ void ObjectController::_handleTransferItem(uint64 targetId,Message* message,Obje
 		
 		gMessageLib->sendDestroyObject(itemObject->getId(),playerObject);
 		gMessageLib->sendCreateObject(itemObject,playerObject);
-		gLogger->log(LogManager::DEBUG,"ObjectController::_handleTransferItemMisc: Player : %I64u contained in %I64u",playerObject->getId(),playerObject->getParentId());
+		//gLogger->log(LogManager::DEBUG,"ObjectController::_handleTransferItemMisc: Player : %I64u contained in %I64u",playerObject->getId(),playerObject->getParentId());
 		
+		return;
 	}	
 
 
@@ -456,6 +457,7 @@ void ObjectController::_handleTransferItem(uint64 targetId,Message* message,Obje
 bool ObjectController::checkContainingContainer(uint64 containingContainer, uint64 playerId)
 {
 	ObjectContainer* container = dynamic_cast<ObjectContainer*>(gWorldManager->getObjectById(containingContainer));
+	PlayerObject*	 playerObject = dynamic_cast<PlayerObject*>(gWorldManager->getObjectById(playerId));
 	
 	if(!container)
 	{
@@ -477,30 +479,26 @@ bool ObjectController::checkContainingContainer(uint64 containingContainer, uint
 
 	}
 
-	uint64 ownerId = container->getObjectMainParent(container);
-
-	Object* object = dynamic_cast<Object*>(gWorldManager->getObjectById(ownerId));
-
-	//it might be the inventory
-	if(!object)
+	Object* mainObject = container->getObjectMainParent(container);
+	if(!mainObject)
 	{
-		//Hack ourselves an inventory .... - its not part of the world ObjectMap
-		if((ownerId-1) == playerId)
-		{
-			object = gWorldManager->getObjectById(playerId);
-		}
+		//Panick
+		assert(false&&"ObjController::checkContainingContainer: CAN NOT FIND MAIN CONTAINING CONTAINER PARENT ");
+		gLogger->log(LogManager::DEBUG,"ObjController::checkContainingContainer: CAN NOT FIND MAIN CONTAINING CONTAINER PARENT CONTAINER ID%I64u :(",container->getId());
+		return false;
 	}
 
-	if(BuildingObject* building = dynamic_cast<BuildingObject*>(object))
+	if(BuildingObject* building = dynamic_cast<BuildingObject*>(mainObject))
 	{
 		if(building->hasAdminRights(playerId) || gWorldConfig->isTutorial())
 		{
 			return true;
 		}
+        gMessageLib->SendSystemMessage(::common::OutOfBand("player_structure", "not_admin"), playerObject);
 		return false;
 	}
 
-	if(CellObject* cell = dynamic_cast<CellObject*>(gWorldManager->getObjectById(ownerId)))
+	if(CellObject* cell = dynamic_cast<CellObject*>(mainObject))
 	{
 		if(BuildingObject* building = dynamic_cast<BuildingObject*>(gWorldManager->getObjectById(cell->getParentId())))
 		{
@@ -517,11 +515,13 @@ bool ObjectController::checkContainingContainer(uint64 containingContainer, uint
 					}
 				}
 			}
+			else
+                gMessageLib->SendSystemMessage(::common::OutOfBand("player_structure", "not_admin"), playerObject);
 		}
 		return false;
 	}
 
-	if(PlayerObject* player = dynamic_cast<PlayerObject*>(object))
+	if(PlayerObject* player = dynamic_cast<PlayerObject*>(mainObject))
 	{
 		if(player->getId() == playerId)
 		{
@@ -542,11 +542,12 @@ bool ObjectController::checkContainingContainer(uint64 containingContainer, uint
 	//todo handle factory hoppers
 
 	//todo handle loot permissions
-	if(CreatureObject* creature = dynamic_cast<CreatureObject*>(object))
+	if(CreatureObject* creature = dynamic_cast<CreatureObject*>(mainObject))
 	{
 	}
 
-	
+	gLogger->log(LogManager::DEBUG,"ObjController::checkContainingContainer: COULDNT CAST MAIN CONTAINING CONTAINER PARENT CONTAINER ID%I64u :(",container->getId());
+
 	return true;
 }
 
@@ -558,9 +559,9 @@ bool ObjectController::checkContainingContainer(uint64 containingContainer, uint
 
 bool ObjectController::checkTargetContainer(uint64 targetContainerId, Object* object)
 {
-	PlayerObject*	playerObject	=	dynamic_cast<PlayerObject*>(mObject);
-	Inventory*		inventory		=	dynamic_cast<Inventory*>(playerObject->getEquipManager()->getEquippedObject(CreatureEquipSlot_Inventory));
-	Bank*			bank			=	dynamic_cast<Bank*>(playerObject->getEquipManager()->getEquippedObject(CreatureEquipSlot_Bank));
+	PlayerObject*	player	=	dynamic_cast<PlayerObject*>(mObject);
+	Inventory*		inventory		=	dynamic_cast<Inventory*>(player->getEquipManager()->getEquippedObject(CreatureEquipSlot_Inventory));
+	Bank*			bank			=	dynamic_cast<Bank*>(player->getEquipManager()->getEquippedObject(CreatureEquipSlot_Bank));
 	TangibleObject* tangibleItem = dynamic_cast<TangibleObject*>(object);
 	
 	//if its a backpack etc we want to know how many items are in it!
@@ -569,12 +570,12 @@ bool ObjectController::checkTargetContainer(uint64 targetContainerId, Object* ob
 	//********************
 	//this is a special case as we are equipping the item
 	//so handle it separately 
-	if(playerObject->getId() == targetContainerId)
+	if(player->getId() == targetContainerId)
 	{
 		//check for equip restrictions!!!!
 		//we cant drop that check - further down we assume that the transfer is accepted
 		// a failing equip will just loose us our item in the receiving container and crash the server in the end
-		return playerObject->getEquipManager()->CheckEquipable(object);		
+		return player->getEquipManager()->CheckEquipable(object);		
 	}
 	
 	//*****************************
@@ -599,7 +600,6 @@ bool ObjectController::checkTargetContainer(uint64 targetContainerId, Object* ob
 			gLogger->log(LogManager::DEBUG,"ObjController::_handleTransferItemMisc: TargetContainer is NULL and not an inventory :(");
 			return false;
 		}
-		
 	}
 
 	//====================================================================00
@@ -618,7 +618,7 @@ bool ObjectController::checkTargetContainer(uint64 targetContainerId, Object* ob
 		{
 			// We don't allow users to place item in the container.
 			// gMessageLib->sendSystemMessage(playerObject,L"","event_perk","chest_can_not_add");
-			gMessageLib->sendSystemMessage(playerObject,L"","error_message","remove_only");
+            gMessageLib->SendSystemMessage(::common::OutOfBand("error_message", "remove_only"), player);
 			return false;
 		}
 	}
@@ -642,30 +642,29 @@ bool ObjectController::checkTargetContainer(uint64 targetContainerId, Object* ob
 			// check if the player is really binded to this bank
 			if(static_cast<uint32>(bank->getPlanet()) != gWorldManager->getZoneId())
 			{
-				gMessageLib->sendSystemMessage(playerObject, L"You are not a member of this bank.");
+				gMessageLib->SendSystemMessage(L"You are not a member of this bank.", player);
 			}
-			access = ((bank->getId()) == playerObject->getId());
+			access = ((bank->getId()) == player->getId());
 
 	}
 	//====================================================================================
 	//get the mainOwner of the container - thats a building or a player or an inventory
 	//
 	
-	uint64 ownerId = container->getObjectMainParent(targetContainer);
-	
-	Object* objectOwner = dynamic_cast<Object*>(gWorldManager->getObjectById(ownerId));
+	Object* objectOwner = container->getObjectMainParent(targetContainer);
 
 	if(BuildingObject* building = dynamic_cast<BuildingObject*>(objectOwner))
 	{
-		if(building->hasAdminRights(playerObject->getId()))
+		if(building->hasAdminRights(player->getId()))
 		{
 			access = true;
 			//do we have enough room ?
 			if(building->checkCapacity(objectSize))
 			{
 				//*****************************
-				//if it is the House wé dont need to check a containers capacity further down
-				if(!tangibleContainer)   //mainly as the container might not exist if its placed in the house directly
+				//we still need to check individual containersize if its a container IN the cell
+				//do NOT check cell capacity though!!!
+				if(!tangibleContainer)   
 					return true;
 
 				fit = true;
@@ -673,7 +672,7 @@ bool ObjectController::checkTargetContainer(uint64 targetContainerId, Object* ob
 			else
 			{
 				//This container is full. 
-				gMessageLib->sendSystemMessage(playerObject,L"","container_error_message","container03");
+                gMessageLib->SendSystemMessage(::common::OutOfBand("container_error_message", "container03"), player);
 				return false;
 			}
 			
@@ -681,7 +680,7 @@ bool ObjectController::checkTargetContainer(uint64 targetContainerId, Object* ob
 		else
 		{
 			//You do not have permission to access that container. 
-			gMessageLib->sendSystemMessage(playerObject,L"","container_error_message","container08");
+            gMessageLib->SendSystemMessage(::common::OutOfBand("container_error_message", "container08"), player);
 			return false;
 		}
 
@@ -691,23 +690,24 @@ bool ObjectController::checkTargetContainer(uint64 targetContainerId, Object* ob
 	//**********************************
 	//the inventory is *NOT* part of the worldmanagers ObjectMap
 	//this is our inventory - we are allowed to put stuff in there - but is there still enough place ?
-	if(inventory&& (inventory->getId() == ownerId) && !bank)
+	Inventory* targetInventory = dynamic_cast<Inventory*>(targetContainer);
+	if(targetInventory && (targetInventory->getId() == objectOwner->getId()) && !bank)
 	{
 		//make sure its our inventory!!!!!!
-		access = ((inventory->getId()-1) == playerObject->getId());
+		access = (targetInventory->getParentId() == player->getId());
 		if(!access)
 		{
 			//You do not have permission to access that container. 
-			gMessageLib->sendSystemMessage(playerObject,L"","container_error_message","container08");
+            gMessageLib->SendSystemMessage(::common::OutOfBand("container_error_message", "container08"), player);
 			return false;
 		}
 		
 		//check space in inventory
-		fit = inventory->checkCapacity(1,playerObject,true);
+		fit = targetInventory->checkCapacity(1,player,true);
 		if(!fit)
 		{
 			//This container is full. 
-			gMessageLib->sendSystemMessage(playerObject,L"","container_error_message","container03");
+            gMessageLib->SendSystemMessage(::common::OutOfBand("container_error_message", "container03"), player);
 			return false;
 		}
 	}	
@@ -719,7 +719,7 @@ bool ObjectController::checkTargetContainer(uint64 targetContainerId, Object* ob
 	//**********************
 	//check capacity - return false if full
 	//we wont get here if its an inventory
-	if(tangibleContainer && (!tangibleContainer->checkCapacity(objectSize,playerObject)) 
+	if(tangibleContainer && (!tangibleContainer->checkCapacity(objectSize,player)) 
 		&& (bank->getId() != targetContainerId)) //automatically sends errormsg to player
 	{
 		return false;
@@ -732,11 +732,11 @@ bool ObjectController::checkTargetContainer(uint64 targetContainerId, Object* ob
 	if(containedContainersize >= containingContainersize)
 	{
 		//This item is too bulky to fit inside this container.
-		gMessageLib->sendSystemMessage(playerObject,L"","container_error_message","container12");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("container_error_message", "container12"), player);
 		return false;
 	}
 
-
+	//still check x -> player
 	return true;
 
 }
@@ -752,7 +752,7 @@ bool ObjectController::removeFromContainer(uint64 targetContainerId, uint64 targ
 	Object*			itemObject		=	gWorldManager->getObjectById(targetId);
 	Inventory*		inventory		=	dynamic_cast<Inventory*>(playerObject->getEquipManager()->getEquippedObject(CreatureEquipSlot_Inventory));
 	Bank*			bank			=	dynamic_cast<Bank*>(playerObject->getEquipManager()->getEquippedObject(CreatureEquipSlot_Bank));
-	TangibleObject* targetContainer = dynamic_cast<TangibleObject*>(gWorldManager->getObjectById(targetContainerId));
+	TangibleObject* targetContainer =	dynamic_cast<TangibleObject*>(gWorldManager->getObjectById(targetContainerId));
 
 	TangibleObject* tangible = dynamic_cast<TangibleObject*>(itemObject);
 
@@ -762,11 +762,9 @@ bool ObjectController::removeFromContainer(uint64 targetContainerId, uint64 targ
 	if (tangible->getParentId() == playerObject->getId())
 	{
 		// unequip it
-		return playerObject->getEquipManager()->unEquipItem(itemObject);
-		
+		return playerObject->getEquipManager()->unEquipItem(itemObject);	
 	}
-	
-	
+	else
 	//its our inventory
 	if (tangible->getParentId() == inventory->getId())
 	{
@@ -891,16 +889,19 @@ bool ObjectController::removeFromContainer(uint64 targetContainerId, uint64 targ
 
 	}
 
-
 	//some other container ... hopper backpack chest etc
 	TangibleObject* containingContainer = dynamic_cast<TangibleObject*>(gWorldManager->getObjectById(tangible->getParentId()));
-	if(containingContainer&&containingContainer->removeObject(itemObject) || bank&&bank->removeObject(itemObject))
 
+	if(containingContainer&&containingContainer->removeObject(itemObject) || bank&&bank->removeObject(itemObject))
 	{
-		playerObject->removeKnownObject(tangible);
-		tangible->removeKnownObject(playerObject);
+		//if it is in a container in a cell it needs to be destroyed for all nearby objects
+		//*is* it in a container in a cell ?
+		BuildingObject* building = dynamic_cast<BuildingObject*>(containingContainer->getObjectMainParent(containingContainer));
+		if(building)
+		{
+			itemObject->destroyKnownObjects();
+		}
 		return true;
-	
 	}
 	
 	return false;
@@ -922,7 +923,7 @@ void ObjectController::_handleTransferItemMisc(uint64 targetId,Message* message,
 	Inventory*		inventory		=	dynamic_cast<Inventory*>(playerObject->getEquipManager()->getEquippedObject(CreatureEquipSlot_Inventory));
 	Bank*			bank			=	dynamic_cast<Bank*>(playerObject->getEquipManager()->getEquippedObject(CreatureEquipSlot_Bank));
 
-	string			dataStr;
+	BString			dataStr;
 	uint64			targetContainerId;
 	uint32			linkType;
 	float			x,y,z;
@@ -1003,9 +1004,8 @@ void ObjectController::_handleTransferItemMisc(uint64 targetId,Message* message,
 		return;
 	}
 
-	TangibleObject* parentContainer = dynamic_cast<TangibleObject*>(gWorldManager->getObjectById(tangible->getParentId()));
-	if(!parentContainer)
-		parentContainer = inventory;
+	ObjectContainer* parentContainer = dynamic_cast<ObjectContainer*>(gWorldManager->getObjectById(tangible->getParentId()));
+	
 
 	if(!checkContainingContainer(tangible->getParentId(), playerObject->getId()))
 	{
@@ -1076,6 +1076,7 @@ void ObjectController::_handleTransferItemMisc(uint64 targetId,Message* message,
 		
 		gLogger->log(LogManager::DEBUG,"ObjectController::_handleTransferItemMisc: Player : %I64u contained in %I64u", playerObject->getId(),playerObject->getParentId());
 		
+		return;
 	}	
 
 
@@ -1085,9 +1086,10 @@ void ObjectController::_handleTransferItemMisc(uint64 targetId,Message* message,
 		// Add object to OUR inventory.
 
 		itemObject->destroyKnownObjects();
-		gMessageLib->sendCreateObject(itemObject,playerObject);
 		
 		itemObject->setParentId(targetContainerId,linkType,playerObject,true);
+		gMessageLib->sendCreateObject(itemObject,playerObject);
+
 		inventory->addObjectSecure(itemObject);
 		
 		return;
@@ -1130,10 +1132,11 @@ void ObjectController::_handleTransferItemMisc(uint64 targetId,Message* message,
 	}
 
 	//some other container ... hopper backpack chest etc
-	TangibleObject* receivingContainer = dynamic_cast<TangibleObject*>(gWorldManager->getObjectById(targetContainerId));
+	ObjectContainer* receivingContainer = dynamic_cast<ObjectContainer*>(gWorldManager->getObjectById(targetContainerId));
 	if(receivingContainer)
 	{
-		receivingContainer->addObjectSecure(itemObject);
+		//create theitem for all players known by the container and add them to the items knownplayerlist!!!
+		receivingContainer->addObjectSecure(itemObject,receivingContainer->getKnownPlayers());
 		itemObject->setParentId(receivingContainer->getId(),linkType,playerObject,true);
 	}	
 }
@@ -1147,7 +1150,7 @@ void ObjectController::_handleTransferItemMisc(uint64 targetId,Message* message,
 void ObjectController::_handlePurchaseTicket(uint64 targetId,Message* message,ObjectControllerCmdProperties* cmdProperties)
 {
 	PlayerObject*	playerObject = dynamic_cast<PlayerObject*>(mObject);
-	string			dataStr;
+	BString			dataStr;
 	BStringVector	dataElements;
 	uint16			elements;
 
@@ -1156,7 +1159,7 @@ void ObjectController::_handlePurchaseTicket(uint64 targetId,Message* message,Ob
 
 	if(playerObject->getPosture() == CreaturePosture_SkillAnimating)
 	{
-		gMessageLib->sendSystemMessage(playerObject,L"", "error_message", "wrong_state");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("error_message", "wrong_state"), playerObject);
 		return;
 	}
 	
@@ -1170,7 +1173,7 @@ void ObjectController::_handlePurchaseTicket(uint64 targetId,Message* message,Ob
 	
     if((!terminal)|| (glm::distance(terminal->mPosition, playerObject->mPosition) > purchaseRange))
 	{
-		gMessageLib->sendSystemMessage(playerObject,L"","travel","too_far");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("travel", "too_far"), playerObject);
 		return;
 	}
 
@@ -1186,7 +1189,7 @@ void ObjectController::_handlePurchaseTicket(uint64 targetId,Message* message,Ob
 
 	if(elements < 4)
 	{
-		gMessageLib->sendSystemMessage(playerObject,L"","travel","route_not_available");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("travel", "route_not_available"), playerObject);
 		return;
 	}
 
@@ -1196,7 +1199,7 @@ void ObjectController::_handlePurchaseTicket(uint64 targetId,Message* message,Ob
 
 	if(!ticketProperties.dstPoint)
 	{
-		gMessageLib->sendSystemMessage(playerObject,L"","travel","route_not_available");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("travel", "route_not_available"), playerObject);
 		return;
 	}
 
@@ -1219,7 +1222,7 @@ void ObjectController::_handlePurchaseTicket(uint64 targetId,Message* message,Ob
 
 	if(!inventory->checkSlots(static_cast<uint8>(amount)))
 	{
-		gMessageLib->sendSystemMessage(playerObject,L"","error_message","inv_full");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("error_message", "inv_full"), playerObject);
 		return;
 	}
 
@@ -1241,7 +1244,7 @@ void ObjectController::_handlePurchaseTicket(uint64 targetId,Message* message,Ob
 
 	if(playerObject->isConnected())
 	{
-		gMessageLib->sendSystemMessage(playerObject,L"","base_player","prose_pay_acct_success","money/acct_n","travelsystem",L"",ticketProperties.price);
+        gMessageLib->SendSystemMessage(::common::OutOfBand("base_player", "prose_pay_acct_success", "", "", "", "", "money/acct_n", "travelsystem", ticketProperties.price), playerObject);
 
 		gObjectFactory->requestNewTravelTicket(inventory,ticketProperties,inventory->getId(),99);
 
@@ -1270,7 +1273,7 @@ void ObjectController::_handlePurchaseTicket(uint64 targetId,Message* message,Ob
 void ObjectController::_handleGetAttributesBatch(uint64 targetId,Message* message,ObjectControllerCmdProperties* cmdProperties)
 {
 	PlayerObject*	playerObject	= dynamic_cast<PlayerObject*>(mObject);
-	string			requestStr;
+	BString			requestStr;
 	BStringVector	dataElements;
 	BStringVector	dataElements2;
 	uint16			elementCount;
@@ -1423,7 +1426,7 @@ void ObjectController::_endBurstRun(uint64 targetId,Message* message,ObjectContr
 void ObjectController::_handleSurrenderSkill(uint64 targetId,Message* message,ObjectControllerCmdProperties* cmdProperties)
 {
 	PlayerObject*	player		= dynamic_cast<PlayerObject*>(mObject);
-	string			skillStr;
+	BString			skillStr;
 
 	message->getStringUnicode16(skillStr);
 	skillStr.convert(BSTRType_ANSI);
@@ -1479,7 +1482,7 @@ void ObjectController::handleObjectMenuRequest(Message* message)
 
 	uint32 itemCount = message->getUint32();
 
-	string extendedDescription;
+	BString extendedDescription;
 	MenuItemList menuItemList;
 
 	MenuItem* menuItem;
@@ -1516,16 +1519,24 @@ void ObjectController::handleObjectMenuRequest(Message* message)
     //just implement this virtual function for items as we need just one central point instead
 	//of the same code over and over for all items
 
+	CellObject* itemCell = dynamic_cast<CellObject*>(gWorldManager->getObjectById(requestedObject->getParentId()));
+
 	Item* item = dynamic_cast<Item*>(requestedObject);
-	ResourceContainer* rc = dynamic_cast<ResourceContainer*>(requestedObject);
-	if(item && requestedObject->getParentId())
+	ResourceContainer* rC = dynamic_cast<ResourceContainer*>(requestedObject);
+	TangibleObject* tO = dynamic_cast<TangibleObject*>(requestedObject);
+
+	//only display that menu when *we* and the item are in the same structure
+	if((rC || item) && itemCell && (!tO->getStatic()))
 	{
-		if(CellObject* cell = dynamic_cast<CellObject*>(gWorldManager->getObjectById(requestedObject->getParentId())))
+		CellObject* playerCell = dynamic_cast<CellObject*>(gWorldManager->getObjectById(playerObject->getParentId()));
+		if(playerCell && (playerCell->getParentId() == itemCell->getParentId()))
 		{
-			requestedObject->prepareCustomRadialMenuInCell(playerObject,static_cast<uint8>(itemCount));
+			PlayerStructure* pS = dynamic_cast<PlayerStructure*>(gWorldManager->getObjectById(playerCell->getParentId()));
+			if(pS)
+				requestedObject->prepareCustomRadialMenuInCell(playerObject,static_cast<uint8>(itemCount));
 		}
 	}
-
+	/*
 	if(rc && requestedObject->getParentId())
 	{
 		if(CellObject* cell = dynamic_cast<CellObject*>(gWorldManager->getObjectById(requestedObject->getParentId())))
@@ -1533,7 +1544,7 @@ void ObjectController::handleObjectMenuRequest(Message* message)
 			requestedObject->prepareCustomRadialMenuInCell(playerObject,static_cast<uint8>(itemCount));
 		}
 	}
-
+	*/
 	//delete the radials after every use or provide every object with set rules when to delete it ?
 
 	if(!requestedObject->getRadialMenu())
@@ -1634,7 +1645,7 @@ void ObjectController::_handleNewbieSelectStartingLocation(uint64 targetId,Messa
 	// Find the planet and position.
 	if (gWorldConfig->isTutorial())
 	{
-		string name;
+		BString name;
 		message->getStringUnicode16(name);
 
 		if (!(name.getLength()))
@@ -1658,17 +1669,15 @@ void ObjectController::_handleClientLogout(uint64 targetId,Message* message,Obje
 	PlayerObject* player = dynamic_cast<PlayerObject*>(mObject);
 	// gLogger->hexDump(message->getData(),message->getSize());
 	
+	//make sure we cannot use the /logout multiple times
+	//as this will invalidate our disconnect lists
+	if(player->checkPlayerCustomFlag(PlayerCustomFlag_LogOut))
+	{
+		
+		return;
+	}
+
 	player->togglePlayerCustomFlagOn(PlayerCustomFlag_LogOut);	
-
-	//// we need to kneel
-	//player->setPosture(CreaturePosture_Crouched);
-	//player->getHam()->updateRegenRates();
-	//player->toggleStateOff(CreatureState_SittingOnChair);
-	//player->updateMovementProperties();
-
-	//gMessageLib->sendUpdateMovementProperties(player);
-	//gMessageLib->sendPostureAndStateUpdate(player);
-	//gMessageLib->sendSelfPostureUpdate(player);
 
 	uint32 logout		= gWorldConfig->getConfiguration<uint32>("Player_LogOut_Time",(uint32)30);
 	uint32 logoutSpacer = gWorldConfig->getConfiguration<uint32>("Player_LogOut_Spacer",(uint32)5);
@@ -1687,7 +1696,7 @@ void ObjectController::_handleClientLogout(uint64 targetId,Message* message,Obje
 
 	// schedule execution
 	addEvent(new LogOutEvent(Anh_Utils::Clock::getSingleton()->getLocalTime()+((logout-logoutSpacer)*1000),logoutSpacer*1000),logoutSpacer*1000);
-	gMessageLib->sendSystemMessage(player,L"","logout","time_left","","",L"",logout);
+    gMessageLib->SendSystemMessage(::common::OutOfBand("logout", "time_left", 0, 0, 0, logout), player);
 
 }
 
@@ -1705,13 +1714,13 @@ void ObjectController::_BurstRun(uint64 targetId,Message* message,ObjectControll
 	//can we burstrun right now ??
 	if(player->checkPlayerCustomFlag(PlayerCustomFlag_BurstRun))
 	{
-		gMessageLib->sendSystemMessage(player,L"You are already running as hard as you can.");
+		gMessageLib->SendSystemMessage(L"You are already running as hard as you can.", player);
 		return;
 	}
 
 	if(player->checkPlayerCustomFlag(PlayerCustomFlag_BurstRunCD))
 	{
-		gMessageLib->sendSystemMessage(player,L"","combat_effects","burst_run_wait");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("combat_effects", "burst_run_wait"), player);
 		return;
 	}
 
@@ -1721,7 +1730,7 @@ void ObjectController::_BurstRun(uint64 targetId,Message* message,ObjectControll
 
 	if(!player->getHam()->checkMainPools(healthcost,actioncost,mindcost))
 	{
-		gMessageLib->sendSystemMessage(player,L"You cannot burst run right now."); // the stf doesn't work!
+		gMessageLib->SendSystemMessage(L"You cannot burst run right now.", player); // the stf doesn't work!
 		return;
 	}
 
@@ -1746,7 +1755,7 @@ void ObjectController::_BurstRun(uint64 targetId,Message* message,ObjectControll
 	addEvent(new BurstRunEvent(now+(br_length*1000),now+(br_coolD*1000)),t*1000);
 	
 	//Send the burst run system message to the player
-	gMessageLib->sendSystemMessage(player,L"You run as hard as you can!");
+	gMessageLib->SendSystemMessage(L"You run as hard as you can!", player);
 	
 	//Now send the burst run combat spam message to InRange
 	int8 s[256];

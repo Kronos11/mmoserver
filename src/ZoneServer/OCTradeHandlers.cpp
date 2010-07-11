@@ -101,19 +101,13 @@ void ObjectController::handleSecureTradeInvitation(uint64 targetId,Message* mess
 
 	if(!invitedPlayer)
 	{
-		gMessageLib->sendSystemMessage(invitingPlayer,L"","ui_trade","start_fail_target_not_player");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("ui_trade", "start_fail_target_not_player"), invitingPlayer);
 		return;
 	}
 
 	if(invitedPlayer->checkStatesEither(CreatureState_Combat | CreatureState_Tumbling | CreatureState_Swimming))
 	{
-		gMessageLib->sendSystemMessage(invitingPlayer,L"","error_message","wrong_state");
-		return;
-	}
-
-	if(invitingPlayer->checkStatesEither(CreatureState_Combat | CreatureState_Tumbling | CreatureState_Swimming))
-	{
-		gMessageLib->sendSystemMessage(invitingPlayer,L"","error_message","wrong_state");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("error_message", "wrong_state"), invitingPlayer);
 		return;
 	}
 
@@ -121,7 +115,7 @@ void ObjectController::handleSecureTradeInvitation(uint64 targetId,Message* mess
 	// if(invitedPlayer->checkPosturesEither(CreaturePosture_Dead | CreaturePosture_Incapacitated))
 	if (invitedPlayer->checkPosture(CreaturePosture_Dead) || invitedPlayer->checkPosture(CreaturePosture_Incapacitated))
 	{
-		gMessageLib->sendSystemMessage(invitingPlayer,L"","error_message","wrong_state");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("error_message", "wrong_state"), invitingPlayer);
 		return;
 	}
 
@@ -129,7 +123,7 @@ void ObjectController::handleSecureTradeInvitation(uint64 targetId,Message* mess
 	// if(invitingPlayer->checkPosturesEither(CreaturePosture_Dead | CreaturePosture_Incapacitated))
 	if (invitingPlayer->checkPosture(CreaturePosture_Dead) || invitingPlayer->checkPosture(CreaturePosture_Incapacitated))
 	{
-		gMessageLib->sendSystemMessage(invitingPlayer,L"","error_message","wrong_state");
+        gMessageLib->SendSystemMessage(::common::OutOfBand("error_message", "wrong_state"), invitingPlayer);
 		return;
 	}
 
@@ -144,13 +138,13 @@ void ObjectController::handleSecureTradeInvitation(uint64 targetId,Message* mess
 			{
 				// We are not invited, check Ignore.
 				// If receiver have sender ignored, auto decline trade request.
-				string ignoreName = invitingPlayer->getFirstName();
+				BString ignoreName = invitingPlayer->getFirstName();
 				ignoreName.toLower();
 
 				// check receivers ignorelist
 				if (invitedPlayer->checkIgnoreList(ignoreName.getCrc()))
 				{
-					gMessageLib->sendSystemMessage(invitingPlayer,L"","ui_trade","request_player_denied_prose","","",L"",0,"","",L"",0,0,invitedPlayer->getId());
+                    gMessageLib->SendSystemMessage(::common::OutOfBand("ui_trade", "request_player_denied_prose", invitedPlayer->getId(), 0, 0), invitingPlayer);
 					return;
 				}
 			}
@@ -158,7 +152,7 @@ void ObjectController::handleSecureTradeInvitation(uint64 targetId,Message* mess
 		}
 		else
 		{
-			gMessageLib->sendSystemMessage(invitingPlayer,L"","ui_trade","request_player_busy_prose","","",L"",0,"","",L"",0,0,invitedPlayer->getId());
+            gMessageLib->SendSystemMessage(::common::OutOfBand("ui_trade", "request_player_busy_prose", invitedPlayer->getId(), 0, 0), invitingPlayer);
 		}
 
 	}
@@ -188,7 +182,7 @@ void ObjectController::_handleTip(uint64 targetId,Message* message,ObjectControl
 	// can't inventory-tip someone out of range so we can assume
 	// the client will send the ID rather than the name in case
 	// of an inventory tip.
-	string attribute, str;
+	BString attribute, str;
 	message->getStringUnicode16(str);
 	attribute = str;
 	attribute.convert(BSTRType_ANSI);
@@ -196,12 +190,12 @@ void ObjectController::_handleTip(uint64 targetId,Message* message,ObjectControl
 	PlayerObject*	player		 = dynamic_cast<PlayerObject*>(mObject);
 	PlayerObject*	target		 = dynamic_cast<PlayerObject*>(gWorldManager->getObjectById(targetId));
 
-	string			targetName;
-	string			dataStr;
+	BString			targetName;
+	BString			dataStr;
 	//int32			amount		 = 0;
 	//uint64			transferType = 0;
 	BStringVector	dataElements;
-	string			bank;
+	BString			bank;
 
 	attribute.getRawData()[attribute.getLength()] = 0;
 
@@ -210,11 +204,11 @@ void ObjectController::_handleTip(uint64 targetId,Message* message,ObjectControl
 	//do we have the right number of attributes?
 	if((elementCount <1) || (elementCount >3))
 	{
-		gMessageLib->sendSystemMessage(player, L"","base_player","prose_tip_invalid_param","","",str.getUnicode16());
+        gMessageLib->SendSystemMessage(::common::OutOfBand("base_player", "prose_tip_invalid_param", L"", L"", str.getUnicode16()), player);
 		return;
 	}
 
-	string lower = dataElements[elementCount-1];
+	BString lower = dataElements[elementCount-1];
 
 	// Have to convert BEFORE using toLower, since the conversion done there is removed It will assert().
 	// Either do the conversion HERE, or better fix the toLower so it handles unicode also.
@@ -227,7 +221,7 @@ void ObjectController::_handleTip(uint64 targetId,Message* message,ObjectControl
 		uint32 amount	= atoi(dataElements[elementCount-2].getAnsi());
 		bool havetarget = false;
 
-		string name;
+		BString name;
 		if(target && (target != player))
 		{
 			havetarget = true;
@@ -250,14 +244,14 @@ void ObjectController::_handleTip(uint64 targetId,Message* message,ObjectControl
 		if(targetId && (!havetarget))
 		{
 			//please note that this is rather complex as we have a targetid even if we explicitly names a target
-			gMessageLib->sendSystemMessage(player, L"You may only /tip or /tip bank to other players.");
+		    gMessageLib->SendSystemMessage(L"You may only /tip or /tip bank to other players.", player);
 			return;
 		}
 	}
 
 	if(target == player)
 	{
-		gMessageLib->sendSystemMessage(player, L"You may only /tip or /tip bank to other players.");
+		gMessageLib->SendSystemMessage(L"You may only /tip or /tip bank to other players.", player);
 		return;
 	}
 
@@ -274,11 +268,11 @@ void ObjectController::_handleTip(uint64 targetId,Message* message,ObjectControl
 	if(targetId && (!target))
 	{
 		//please note that this is rather complex as we have a targetid even if we explicitely name a target
-		gMessageLib->sendSystemMessage(player, L"You may only /tip or /tip bank to other players.");
+		gMessageLib->SendSystemMessage(L"You may only /tip or /tip bank to other players.", player);
 		return;
 	}
-
-	gMessageLib->sendSystemMessage(player, L"","base_player","prose_tip_invalid_param","","",str.getUnicode16());
+    
+    gMessageLib->SendSystemMessage(::common::OutOfBand("base_player", "prose_tip_invalid_param", L"", L"", str.getUnicode16()), player);
 	return;
 
 

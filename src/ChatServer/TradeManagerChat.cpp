@@ -67,7 +67,7 @@ uint32 TradeManagerChatHandler::getBazaarRegion(uint64 ID)
 
 //======================================================================================================================
 
-string TradeManagerChatHandler::getBazaarString(uint64 ID)
+BString TradeManagerChatHandler::getBazaarString(uint64 ID)
 {
 	//uint32 Region = 0;
 
@@ -111,15 +111,15 @@ TradeManagerChatHandler::TradeManagerChatHandler(Database* database, MessageDisp
 	mPlayerAccountMap = mChatManager->getPlayerAccountMap();
 	TradeManagerAsyncContainer* asyncContainer;
 
-	mMessageDispatch->RegisterMessageCallback(opIsVendorMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opAuctionQueryHeadersMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opGetAuctionDetails,this);
-	mMessageDispatch->RegisterMessageCallback(opCancelLiveAuctionMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opRetrieveAuctionItemMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opProcessCreateAuction,this);
-	mMessageDispatch->RegisterMessageCallback(opGetCommoditiesTypeList,this);
-	mMessageDispatch->RegisterMessageCallback(opBidAuctionMessage,this);
-	mMessageDispatch->RegisterMessageCallback(opBankTipDustOff,this);
+	mMessageDispatch->RegisterMessageCallback(opIsVendorMessage,std::bind(&TradeManagerChatHandler::processHandleIsVendorMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opAuctionQueryHeadersMessage,std::bind(&TradeManagerChatHandler::processHandleopAuctionQueryHeadersMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opGetAuctionDetails,std::bind(&TradeManagerChatHandler::processGetAuctionDetails, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opCancelLiveAuctionMessage,std::bind(&TradeManagerChatHandler::processCancelLiveAuctionMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opRetrieveAuctionItemMessage,std::bind(&TradeManagerChatHandler::processRetrieveAuctionItemMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opProcessCreateAuction,std::bind(&TradeManagerChatHandler::ProcessCreateAuction, this, std::placeholders::_1, std::placeholders::_2));
+	//mMessageDispatch->RegisterMessageCallback(opGetCommoditiesTypeList,std::bind(&TradeManagerChatHandler::_ProcessRequestTypeList, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opBidAuctionMessage,std::bind(&TradeManagerChatHandler::processBidAuctionMessage, this, std::placeholders::_1, std::placeholders::_2));
+	mMessageDispatch->RegisterMessageCallback(opBankTipDustOff,std::bind(&TradeManagerChatHandler::ProcessBankTip, this, std::placeholders::_1, std::placeholders::_2));
 
 
 
@@ -222,67 +222,6 @@ void TradeManagerChatHandler::Shutdown()
 		timerIt = mTimers.erase(timerIt);
 	}
     */
-}
-
-//======================================================================================================================
-void TradeManagerChatHandler::handleDispatchMessage(uint32 opcode, Message* message, DispatchClient* client)
-{
-	switch(opcode)
-	{
-		case opBankTipDustOff:
-		{
-			ProcessBankTip(message,client);
-		}
-		break;
-
-		case opGetCommoditiesTypeList:
-		{
-			//_ProcessRequestTypeList(message,client);
-		}
-		break;
-		case opProcessCreateAuction:
-		{
-			ProcessCreateAuction(message,client);
-		}
-		break;
-		case opRetrieveAuctionItemMessage:
-		{
-			processRetrieveAuctionItemMessage(message,client);
-		}
-		break;
-
-		case opBidAuctionMessage:
-		{
-			processBidAuctionMessage(message,client);
-		}
-		break;
-		case opCancelLiveAuctionMessage:
-		{
-			processCancelLiveAuctionMessage(message,client);
-		}
-		break;
-		case opIsVendorMessage:
-		{
-			processHandleIsVendorMessage(message,client);
-		}
-		break;
-
-		case opGetAuctionDetails:
-		{
-			processGetAuctionDetails(message,client);
-		}
-		break;
-
-		case opAuctionQueryHeadersMessage:
-		{
-			processHandleopAuctionQueryHeadersMessage(message,client);
-		}
-		break;
-
-		default:
-			gLogger->log(LogManager::NOTICE, "TradeManagerMessage::handleDispatchMessage: Unhandled opcode %u",opcode);
-		break;
-	}
 }
 
 //=======================================================================================================================
@@ -746,7 +685,7 @@ void TradeManagerChatHandler::handleDatabaseJobComplete(void* ref,DatabaseResult
 			//Nr of unique Auction Names (no auction name more than once)
 			gMessageFactory->addUint32(auction->NameStringCount);
 
-			string s;
+			BString s;
 			NameStringList::iterator itD = auction->mNameStringList.begin();
 			while(itD != auction->mNameStringList.end())
 			{
@@ -1140,13 +1079,13 @@ void TradeManagerChatHandler::processAuctionEMails(AuctionItem* auctionTemp)
 
 	char *Token;
 	char separation[] = ".#,";
-	string mString;
+	BString mString;
 	mString = mBazaarInfo->string;
 
 	Token = strtok(mString.getRawData(),separation); //
-	string planet = BString(Token);
+	BString planet = BString(Token);
 	Token = strtok( NULL,separation);
-	string region = BString(Token);
+	BString region = BString(Token);
 
 	Token = strtok( NULL,separation);
 	//thats now the terminal id part
@@ -1849,7 +1788,7 @@ void TradeManagerChatHandler::ProcessRequestTypeList(Message* message,DispatchCl
 		return;
 	}
 
-			string servername;
+			BString servername;
 
 			uint32 theCounter = 0;
 
@@ -1912,7 +1851,7 @@ void TradeManagerChatHandler::processHandleIsVendorMessage(Message* message,Disp
 
 	uint64 mVendorId = message->getUint64();
 
-	string mBazaarString = "";
+	BString mBazaarString = "";
 	uint32 error = 0;
 
 	mBazaarString = getBazaarString(mVendorId);
@@ -2041,7 +1980,7 @@ void TradeManagerChatHandler::ProcessBankTip(Message* message,DispatchClient* cl
 	/*uint64	playerID	= */message->getUint64();
 	uint32	amount		= message->getUint32();
 
-	string	receiverName;
+	BString	receiverName;
 	message->getStringAnsi(receiverName);
 
 	//send the respective EMails

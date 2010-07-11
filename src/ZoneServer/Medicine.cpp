@@ -79,10 +79,10 @@ void Medicine::handleStimpackMenuSelect(uint8 messageType, PlayerObject* player,
 
 					}
 				} else {
-					gMessageLib->sendSystemMessage(player,L"","healing_response","not_enough_mind");
+                    gMessageLib->SendSystemMessage(::common::OutOfBand("healing_response", "not_enough_mind"), player);
 				}
 			} else {
-				gMessageLib->sendSystemMessage(player,L"","healing_response","healing_response_62");
+                gMessageLib->SendSystemMessage(::common::OutOfBand("healing_response", "healing_response_62"), player);
 			}
 		}
 	}
@@ -112,10 +112,10 @@ void Medicine::handleWoundPackMenuSelect(uint8 messageType, PlayerObject* player
 
 					}
 				} else {
-					gMessageLib->sendSystemMessage(player,L"","healing_response","not_enough_mind");
+                    gMessageLib->SendSystemMessage(::common::OutOfBand("healing_response", "not_enough_mind"), player);
 				}
 			} else {
-				gMessageLib->sendSystemMessage(player,L"","healing_response","healing_response_62");
+                gMessageLib->SendSystemMessage(::common::OutOfBand("healing_response", "healing_response_62"), player);
 			}
 		}
 	}
@@ -237,7 +237,7 @@ healing_ability
 		return;
 	}
 */
-uint Medicine::getSkillRequired(string skill)
+uint Medicine::getSkillRequired(BString skill)
 {
 	return this->getAttribute<uint32>(skill);
 }
@@ -274,14 +274,14 @@ uint32 Medicine::getHealWoundStrength()
 {
 	return (uint32)this->getAttribute<float>("examine_heal_wound_strength");
 }
-uint32 Medicine::getHealWound(string attribute)
+uint32 Medicine::getHealWound(BString attribute)
 {
 	//this should return us the attribute type we are trying to heal
 	//TODO replace with std::string after bstring is removed...
-	string examine = "examine_heal_wound_";
+	BString examine = "examine_heal_wound_";
 	std::string tmp = examine.getAnsi();
 	tmp.append(attribute.getAnsi());
-	string attr = tmp.c_str();
+	BString attr = tmp.c_str();
 	return (uint32)this->getAttribute<float>(attr);
 }
 

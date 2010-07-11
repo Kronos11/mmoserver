@@ -166,13 +166,13 @@ bool Datapad::removeWaypoint(uint64 id)
 
 //=============================================================================
 
-WaypointObject* Datapad::getWaypointByName(string name)
+WaypointObject* Datapad::getWaypointByName(BString name)
 {
 	WaypointList::iterator it = mWaypoints.begin();
 
 	while(it != mWaypoints.end())
 	{
-		string wpName = (*it)->getName();
+		BString wpName = (*it)->getName();
 		wpName.convert(BSTRType_ANSI);
 
 		if(strcmp(wpName.getAnsi(),name.getAnsi()) == 0)
@@ -256,8 +256,11 @@ bool Datapad::addWaypoint(WaypointObject* waypoint)
 	}
 	else
 	{
-		PlayerObject* player = dynamic_cast<PlayerObject*>(gWorldManager->getObjectById(this->getParentId()));					
-		gMessageLib->sendSystemMessage(player,L"","base_player","too_many_waypoints");
+		PlayerObject* player = dynamic_cast<PlayerObject*>(gWorldManager->getObjectById(this->getParentId()));	
+        if (player) {
+            gMessageLib->SendSystemMessage(::common::OutOfBand("base_player","too_many_waypoints"), player);
+        }
+
 		return false;
 	}
 }
@@ -279,13 +282,28 @@ bool Datapad::addData(IntangibleObject* Data)
 	}
 	else
 	{
-		PlayerObject* player = dynamic_cast<PlayerObject*>(gWorldManager->getObjectById(this->getParentId()));					
-		gMessageLib->sendSystemMessage(player,L"","base_player","too_many_waypoints");
+		PlayerObject* player = dynamic_cast<PlayerObject*>(gWorldManager->getObjectById(this->getParentId()));	
+        if (player) {
+            gMessageLib->SendSystemMessage(::common::OutOfBand("base_player","too_many_waypoints"), player);
+        }
 		return false;
 
 	}
 }
 
+//=============================================================================
+// given a waypoint object, this will update the player and database to the new waypoint location
+// used for Surveying, FindFriend, Missions, anything where we would have deleted and then created a new waypoint
+
+void Datapad::updateWaypoint(uint64 wpId, BString name, const glm::vec3& coords, uint16 planetId, uint64 owner, uint8 activeStatus)
+{
+
+	if (getWaypointById(wpId))
+	{
+		gObjectFactory->requestUpdatedWaypoint(this, wpId, name, coords, planetId, owner, activeStatus);
+	}
+		
+}
 //=============================================================================
 
 void Datapad::handleObjectReady(Object* object,DispatchClient* client)
@@ -430,15 +448,15 @@ return it;
 //=============================================================================
 
 
-void Datapad::requestNewWaypoint(string name, const glm::vec3& coords, uint16 planetId, uint8 wpType)
+void Datapad::requestNewWaypoint(BString name, const glm::vec3& coords, uint16 planetId, uint8 wpType)
 {
 	
 	if(!mCapacity)
 	{
-		PlayerObject*	player			= dynamic_cast<PlayerObject*>(gWorldManager->getObjectById(this->getParentId()));					
-		
-		if(player)
-			gMessageLib->sendSystemMessage(player,L"","base_player","too_many_waypoints");
+		PlayerObject*	player			= dynamic_cast<PlayerObject*>(gWorldManager->getObjectById(this->getParentId()));		
+        if (player) {
+            gMessageLib->SendSystemMessage(::common::OutOfBand("base_player","too_many_waypoints"), player);
+        }
 		
 		return;
 	}
@@ -458,9 +476,11 @@ bool Datapad::addManufacturingSchematic(ManufacturingSchematic* ms)
 	}
 	else
 	{
-		PlayerObject*	player			= dynamic_cast<PlayerObject*>(gWorldManager->getObjectById(this->getParentId()));					
-		if(player)
-			gMessageLib->sendSystemMessage(player,L"","ui_craft","err_datapad_full_prose");
+		PlayerObject*	player			= dynamic_cast<PlayerObject*>(gWorldManager->getObjectById(this->getParentId()));		
+        if (player) {
+            gMessageLib->SendSystemMessage(::common::OutOfBand("ui_craft","err_datapad_full_prose"), player);
+        }
+
 		return false;
 	}
 }
@@ -472,12 +492,12 @@ bool Datapad::addMission(MissionObject* mission)
 	PlayerObject*	player			= dynamic_cast<PlayerObject*>(gWorldManager->getObjectById(this->getParentId()));					
 	if(!mCapacity)
 	{
-		gMessageLib->sendSystemMessage(player,L"Error datapad at max capacity. Couldn't create the mission.");
+		gMessageLib->SendSystemMessage(L"Error datapad at max capacity. Couldn't create the mission.", player);
 		return false;
 	}
 	if(!mMissionCapacity)
 	{
-		gMessageLib->sendSystemMessage(player,L"Error datapad mission system at max capacity. Couldn't create the mission.");
+		gMessageLib->SendSystemMessage(L"Error datapad mission system at max capacity. Couldn't create the mission.", player);
 		return false;
 	}
 	mMissions.push_back(mission); 

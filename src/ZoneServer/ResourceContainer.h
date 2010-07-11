@@ -47,8 +47,10 @@ class ResourceContainer : public TangibleObject
 		~ResourceContainer();
 
 		virtual void	setParentIdIncDB(uint64 parentId);
-		virtual void	upDateFactoryVolume(string amount);
+		virtual void	upDateFactoryVolume(BString amount);
 		virtual void	updateWorldPosition();
+		
+        void prepareCustomRadialMenuInCell(CreatureObject* creatureObject, uint8 itemCount);
 	
 
 		uint64		getResourceId();
@@ -61,8 +63,8 @@ class ResourceContainer : public TangibleObject
 		void		setMaxAmount(uint32 max);
 
 		void		sendAttributes(PlayerObject* playerObject);
-		string		getBazaarName();
-		string		getBazaarTang();
+		BString		getBazaarName();
+		BString		getBazaarTang();
 		uint32		getCategoryBazaar();
 
 	private:

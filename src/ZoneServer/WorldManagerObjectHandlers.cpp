@@ -120,7 +120,7 @@ bool WorldManager::addObject(Object* object,bool manual)
 	//make sure objects arnt added several times!!!!
 	if(getObjectById(key))
 	{
-		gLogger->log(LogManager::NOTICE,"WorldManager::addObject Object already existant added several times or ID messup ???");
+		gLogger->log(LogManager::NOTICE,"WorldManager::addObject Object(%u) already exists added several times or ID messup ???", key);
 		return false;
 	}
 
@@ -205,7 +205,7 @@ bool WorldManager::addObject(Object* object,bool manual)
 			player->getStomach()->checkForRegen();
 
 			// onPlayerEntered event, notify scripts
-			string params;
+			BString params;
 			params.setLength(sprintf(params.getAnsi(),"%s %s %u",getPlanetNameThis(),player->getFirstName().getAnsi(),static_cast<uint32>(mPlayerAccMap.size())));
 
 			mWorldScriptsListener.handleScriptEvent("onPlayerEntered",params);
@@ -609,7 +609,7 @@ void WorldManager::destroyObject(Object* object)
 
 
 			// onPlayerLeft event, notify scripts
-			string params;
+			BString params;
 			params.setLength(sprintf(params.getAnsi(),"%s %s %u",getPlanetNameThis(),player->getFirstName().getAnsi(),static_cast<uint32>(mPlayerAccMap.size())));
 
 			mWorldScriptsListener.handleScriptEvent("onPlayerLeft",params);
