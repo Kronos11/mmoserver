@@ -496,7 +496,7 @@ void LoginManager::_sendCharacterList(LoginClient* client, DatabaseResult* resul
   gMessageFactory->addUint32(01);   // galaxy open
   gMessageFactory->addUint32(01);   // character slot open
   gMessageFactory->addUint32(00);   // unlimited characters
-  gMessageFactory->addBString(0067B8);
+  gMessageFactory->addUint32(26552);
   Message* message = gMessageFactory->EndMessage();
   client->SendChannelA(message, 2, false);
   }
