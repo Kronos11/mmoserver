@@ -428,7 +428,6 @@ void LoginManager::_sendServerList(LoginClient* client, DatabaseResult* result)
     gMessageFactory->addUint32(0xffff8f80);
   }
   gMessageFactory->addUint32(client->getCharsAllowed());
-
   // Send our message;
   Message* message = gMessageFactory->EndMessage();
   client->SendChannelA(message, 3, false);
@@ -462,6 +461,7 @@ void LoginManager::_sendCharacterList(LoginClient* client, DatabaseResult* resul
   gMessageFactory->StartMessage();                                 // Opcode group number
   gMessageFactory->addUint32(opEnumerateCharacterId);
   gMessageFactory->addUint32(charCount);                            // Character count
+
   for (uint32 i = 0; i < charCount; i++)
   {
     result->GetNextRow(binding, &data);
@@ -489,6 +489,28 @@ void LoginManager::_sendCharacterList(LoginClient* client, DatabaseResult* resul
   }
   Message* message = gMessageFactory->EndMessage();
   client->SendChannelA(message, 2, false);
+  if(client->getCharsAllowed() > charCount){
+   // Create our Chars Allowed Message
+  gMessageFactory->StartMessage();                                 // Opcode group number
+  gMessageFactory->addUint32(opClientPermissionsMessage);
+  gMessageFactory->addUint32(01);   // galaxy open
+  gMessageFactory->addUint32(01);   // character slot open
+  gMessageFactory->addUint32(00);   // unlimited characters
+  gMessageFactory->addBString(0067B8);
+  Message* message = gMessageFactory->EndMessage();
+  client->SendChannelA(message, 2, false);
+  }
+  else{
+	  // Create our Chars Allowed Message
+  gMessageFactory->StartMessage();                                 // Opcode group number
+  gMessageFactory->addUint32(opClientPermissionsMessage);
+  gMessageFactory->addUint32(01);   // galaxy open
+  gMessageFactory->addUint32(00);   // character slot open
+  gMessageFactory->addUint32(00);   // unlimited characters 
+  gMessageFactory->addUint32(26552);
+  Message* message = gMessageFactory->EndMessage();
+  client->SendChannelA(message, 2, false);
+  }
 
   // Destroy our data binding
   mDatabase->DestroyDataBinding(binding);
@@ -543,6 +565,7 @@ void LoginManager::_sendServerStatus(LoginClient* client)
     gMessageFactory->addUint32(0x00000cb2);
     gMessageFactory->addUint32(client->getCharsAllowed());
     gMessageFactory->addUint32(0xffff8f80);
+
     if((*iter)->mStatus==3 && client->getCsr()>0)// server status 0=offline, 1=loading, 2=online, 3=locked
 	{
 		gMessageFactory->addUint32(2);  
