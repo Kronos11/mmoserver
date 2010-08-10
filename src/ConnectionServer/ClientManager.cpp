@@ -425,7 +425,12 @@ void ClientManager::_handleQueryAuth(ConnectionClient* client, DatabaseResult* r
     gMessageFactory->StartMessage();
     gMessageFactory->addUint32(opClientPermissionsMessage);
     gMessageFactory->addUint8(1);             // unknown
-    gMessageFactory->addUint8(0);             // Character creation allowed?
+	if (AllowedChars > charCount){
+    gMessageFactory->addUint8(1);             // Character creation allowed?
+	}
+	else{
+	gMessageFactory->addUint8(0);             // Character creation allowed?
+	}
     gMessageFactory->addUint8(0);             // Unlimited Character Creation Flag
     Message* message = gMessageFactory->EndMessage();
 
