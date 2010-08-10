@@ -416,10 +416,12 @@ void ClientManager::_handleQueryAuth(ConnectionClient* client, DatabaseResult* r
 
 	// Retrieve the allowed number of characters for a client ( To assign to a variable but i dunno how to do that just yet
 	mDatabase->ExecuteSqlAsync(0, 0, "SELECT characters_allowed FROM account WHERE account_id=%u;" client->getAccountId());
-	uint32 charCount = static_cast<uint32>(result->getRowCount());
+	uint32 AllowedChars = static_cast<uint32>(no idea what to put here);
+
 	// Retrieve the current number of characters for a client ( To assign to a variable but i dunno how to do that just yet
 	mDatabase->ExecuteProcedureAsync(this, ref, "CALL swganh.sp_ReturnAccountCharacters(%u);", client->getAccountId());
 	uint32 charCount = static_cast<uint32>(result->getRowCount());
+
     gMessageFactory->StartMessage();
     gMessageFactory->addUint32(opClientPermissionsMessage);
     gMessageFactory->addUint8(1);             // unknown
