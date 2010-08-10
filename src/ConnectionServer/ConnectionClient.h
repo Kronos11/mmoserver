@@ -55,6 +55,7 @@ class ConnectionClient : public NetworkClient
 		void                          setState(ConnectionClientState state)     { mState = state; }
 		void                          setAccountId(uint32 id)                   { mAccountId = id; }
 		void                          setServerId(uint32 id)                    { mServerId = id; }
+		uint32						  mCharsAllowed;
 
 	private:
 

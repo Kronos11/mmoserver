@@ -415,19 +415,23 @@ void ClientManager::_handleQueryAuth(ConnectionClient* client, DatabaseResult* r
     mMessageRouter->RouteMessage(adminMessage, client);
 
 	// Retrieve the allowed number of characters for a client ( To assign to a variable but i dunno how to do that just yet
-	mDatabase->ExecuteSqlAsync(0, 0, "SELECT characters_allowed FROM account WHERE account_id=%u;" client->getAccountId());
-	uint32 AllowedChars = static_cast<uint32>(result->getRow());
+	mDatabase->ExecuteSqlAsync(0, 0, "SELECT characters_allowed FROM account WHERE account_id=%u;", client->getAccountId());
+
+			 ConnectionClient data;
+  DataBinding* binding = mDatabase->CreateDataBinding(1);
+  binding->addField(DFT_uint32,offsetof(ConnectionClient, mCharsAllowed), 4);
 
 	// Retrieve the current number of characters for a client ( To assign to a variable but i dunno how to do that just yet
+	void* ref;
 	mDatabase->ExecuteProcedureAsync(this, ref, "CALL swganh.sp_ReturnAccountCharacters(%u);", client->getAccountId());
 	uint32 charCount = static_cast<uint32>(result->getRowCount());
 
     gMessageFactory->StartMessage();
     gMessageFactory->addUint32(opClientPermissionsMessage);
-    gMessageFactory->addUint8(1);             // unknown
+    gMessageFactory->addUint8(1);             // Galaxy Available
 
 	// Checks the Clients Characters allowed against how many they have and sends the flag accordingly for char creation
-	if (AllowedChars > charCount){
+	if (data.mCharsAllowed > charCount){
     gMessageFactory->addUint8(1);             // Character creation allowed
 	}
 	else{
