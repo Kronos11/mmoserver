@@ -416,7 +416,7 @@ void ClientManager::_handleQueryAuth(ConnectionClient* client, DatabaseResult* r
 
 	// Retrieve the allowed number of characters for a client ( To assign to a variable but i dunno how to do that just yet
 	mDatabase->ExecuteSqlAsync(0, 0, "SELECT characters_allowed FROM account WHERE account_id=%u;" client->getAccountId());
-	uint32 AllowedChars = static_cast<uint32>(no idea what to put here);
+	uint32 AllowedChars = static_cast<uint32>(result->getRow());
 
 	// Retrieve the current number of characters for a client ( To assign to a variable but i dunno how to do that just yet
 	mDatabase->ExecuteProcedureAsync(this, ref, "CALL swganh.sp_ReturnAccountCharacters(%u);", client->getAccountId());
@@ -425,11 +425,13 @@ void ClientManager::_handleQueryAuth(ConnectionClient* client, DatabaseResult* r
     gMessageFactory->StartMessage();
     gMessageFactory->addUint32(opClientPermissionsMessage);
     gMessageFactory->addUint8(1);             // unknown
+
+	// Checks the Clients Characters allowed against how many they have and sends the flag accordingly for char creation
 	if (AllowedChars > charCount){
-    gMessageFactory->addUint8(1);             // Character creation allowed?
+    gMessageFactory->addUint8(1);             // Character creation allowed
 	}
 	else{
-	gMessageFactory->addUint8(0);             // Character creation allowed?
+	gMessageFactory->addUint8(0);             // Character creation disabled
 	}
     gMessageFactory->addUint8(0);             // Unlimited Character Creation Flag
     Message* message = gMessageFactory->EndMessage();
