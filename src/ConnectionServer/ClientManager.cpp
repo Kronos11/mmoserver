@@ -422,8 +422,8 @@ void ClientManager::_handleQueryAuth(ConnectionClient* client, DatabaseResult* r
   binding->addField(DFT_uint32,offsetof(ConnectionClient, mCharsAllowed), 4);
 
 	// Retrieve the current number of characters for a client ( To assign to a variable but i dunno how to do that just yet
-	void* ref;
-	mDatabase->ExecuteProcedureAsync(this, ref, "CALL swganh.sp_ReturnAccountCharacters(%u);", client->getAccountId());
+	//void* ref;
+	mDatabase->ExecuteProcedureAsync(this, (void*)client, "CALL sp_ReturnAccountCharacters(%u);", client->getAccountId());
 	uint32 charCount = static_cast<uint32>(result->getRowCount());
 
     gMessageFactory->StartMessage();
