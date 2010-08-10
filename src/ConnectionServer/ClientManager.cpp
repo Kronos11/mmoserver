@@ -239,6 +239,7 @@ void ClientManager::handleDatabaseJobComplete(void* ref, DatabaseResult* result)
       _handleQueryAuth(client, result);
       break;
     }
+
   default:
   	break;
   }
@@ -395,7 +396,7 @@ void ClientManager::_handleQueryAuth(ConnectionClient* client, DatabaseResult* r
   {
     // Update the account record that it is now logged in and last login date.
     mDatabase->ExecuteSqlAsync(0, 0, "UPDATE account SET lastlogin=NOW(), loggedin=%u WHERE account_id=%u;", gConfig->read<uint32>("ClusterId"), client->getAccountId());
-
+	 
     // finally add them to our accountId map.
     boost::recursive_mutex::scoped_lock lk(mServiceMutex);
 	mPlayerClientMap.insert(std::make_pair(client->getAccountId(), client));
@@ -413,11 +414,17 @@ void ClientManager::_handleQueryAuth(ConnectionClient* client, DatabaseResult* r
     adminMessage->setRouted(true);
     mMessageRouter->RouteMessage(adminMessage, client);
 
+	// Retrieve the allowed number of characters for a client ( To assign to a variable but i dunno how to do that just yet
+	mDatabase->ExecuteSqlAsync(0, 0, "SELECT characters_allowed FROM account WHERE account_id=%u;" client->getAccountId());
+	uint32 charCount = static_cast<uint32>(result->getRowCount());
+	// Retrieve the current number of characters for a client ( To assign to a variable but i dunno how to do that just yet
+	mDatabase->ExecuteProcedureAsync(this, ref, "CALL swganh.sp_ReturnAccountCharacters(%u);", client->getAccountId());
+	uint32 charCount = static_cast<uint32>(result->getRowCount());
     gMessageFactory->StartMessage();
     gMessageFactory->addUint32(opClientPermissionsMessage);
     gMessageFactory->addUint8(1);             // unknown
-    gMessageFactory->addUint8(1);             // Character creation allowed?
-    gMessageFactory->addUint8(1);
+    gMessageFactory->addUint8(0);             // Character creation allowed?
+    gMessageFactory->addUint8(0);             // Unlimited Character Creation Flag
     Message* message = gMessageFactory->EndMessage();
 
     // Send our message to the client.

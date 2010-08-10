@@ -489,29 +489,6 @@ void LoginManager::_sendCharacterList(LoginClient* client, DatabaseResult* resul
   }
   Message* message = gMessageFactory->EndMessage();
   client->SendChannelA(message, 2, false);
-  if(client->getCharsAllowed() > charCount){
-   // Create our Chars Allowed Message
-  gMessageFactory->StartMessage();                                 // Opcode group number
-  gMessageFactory->addUint32(opClientPermissionsMessage);
-  gMessageFactory->addUint32(01);   // galaxy open
-  gMessageFactory->addUint32(01);   // character slot open
-  gMessageFactory->addUint32(00);   // unlimited characters
-  gMessageFactory->addUint32(26552);
-  Message* message = gMessageFactory->EndMessage();
-  client->SendChannelA(message, 2, false);
-  }
-  else{
-	  // Create our Chars Allowed Message
-  gMessageFactory->StartMessage();                                 // Opcode group number
-  gMessageFactory->addUint32(opClientPermissionsMessage);
-  gMessageFactory->addUint32(01);   // galaxy open
-  gMessageFactory->addUint32(00);   // character slot open
-  gMessageFactory->addUint32(00);   // unlimited characters 
-  gMessageFactory->addUint32(26552);
-  Message* message = gMessageFactory->EndMessage();
-  client->SendChannelA(message, 2, false);
-  }
-
   // Destroy our data binding
   mDatabase->DestroyDataBinding(binding);
 }
