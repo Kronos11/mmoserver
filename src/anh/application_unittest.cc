@@ -44,6 +44,8 @@ public:
     , shared_ptr<IServerDirectory> server_directory)
     : BaseApplication(config_files, event_dispatcher, db_manager, scripting_manager, server_directory){};
     MOCK_CONST_METHOD0(hasStarted, bool());
+    MOCK_METHOD0(onAddDefaultOptions_, void());
+    MOCK_METHOD0(onRegisterApp_, void());
 };
 
 class ApplicationTest : public testing::Test
@@ -154,37 +156,50 @@ TEST_F(ApplicationTest, DiesWhenProcessCalledAfterShutdown) {
 /// checks based on a test cfg file we are able to load and register two storage types
 TEST_F(ApplicationTest, doesLoadConfigurationFile)
 {
-    scripter = make_shared<MockScriptingManager>();
-    manager = make_shared<NiceMock<MockDatabaseManager>>();
-    directory = make_shared<NiceMock<MockServerDirectory>>();
-    mock_dispatcher = make_shared<NiceMock<MockEventDispatcher>>();
-    
+    shared_ptr<MockApplication> app = buildBasicApplication();
+
     EXPECT_CALL(*manager, registerStorageType(_,"swganh_static","localhost","root", "swganh"));
     EXPECT_CALL(*manager, registerStorageType(_,"swganh","localhost","root", "swganh"));
-    shared_ptr<MockApplication> app = make_shared<MockApplication>(config, mock_dispatcher, manager, scripter, directory);
-
+    
     EXPECT_NO_THROW(
         app->startup();    
     );
 }
 TEST_F(ApplicationTest, cantLoadConfigFile)
 {
-    
-    config.push_back("notfound.cfg");
-
+    scripter = make_shared<MockScriptingManager>();
+    manager = make_shared<NiceMock<MockDatabaseManager>>();
+    directory = make_shared<NiceMock<MockServerDirectory>>();
+    mock_dispatcher = make_shared<NiceMock<MockEventDispatcher>>();
+    list<string> config_list;
+    config_list.push_back("notfound.cfg");
+    shared_ptr<MockApplication> app = make_shared<MockApplication>(config_list, mock_dispatcher, manager, scripter, directory);
     // expectation is an exception is thrown as file not found
     EXPECT_ANY_THROW(
-        buildBasicApplication();
+       app->startup();
     ); 
 }
 /// checks based on a test cfg file we are able to load and register two storage types
 TEST_F(ApplicationTest, foundConfigNoValidValues)
 {
-    config.push_back("invalid_data.cfg");
+    scripter = make_shared<MockScriptingManager>();
+    manager = make_shared<NiceMock<MockDatabaseManager>>();
+    directory = make_shared<NiceMock<MockServerDirectory>>();
+    mock_dispatcher = make_shared<NiceMock<MockEventDispatcher>>();
+    list<string> config_list;
+    config_list.push_back("invalid_data.cfg");
+    shared_ptr<MockApplication> app = make_shared<MockApplication>(config_list, mock_dispatcher, manager, scripter, directory);
     
     EXPECT_ANY_THROW(
-        buildBasicApplication();
+        app->startup();
     );
+}
+/// checks to see that the virtual function onAddDefaultOptions is called
+TEST_F(ApplicationTest, onAddDefaultOptionsCalled)
+{
+    shared_ptr<MockApplication> app = buildBasicApplication();
+    EXPECT_CALL(*app, onAddDefaultOptions_());
+    app->startup();
 }
 /// checks if on startup the process is registered with server directory
 TEST_F(ApplicationTest, doesRegisterProcess)

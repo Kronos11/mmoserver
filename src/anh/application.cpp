@@ -57,14 +57,14 @@ BaseApplication::BaseApplication(list<string> config_files, int argc, char* argv
     , argc_(argc)
     , argv_(argv)
     , started_(false)
+    , config_files_(config_files)
 {
     event_dispatcher_ = event_dispatcher;
     db_manager_ = db_manager;
     scripting_manager_ = scripting_manager;
     server_directory_ = server_directory;
 
-    init_();
-    loadOptions_(argc, argv, config_files);
+    registerEventTypes_();
 }
 
 BaseApplication::BaseApplication(int argc, char* argv[]
@@ -76,14 +76,14 @@ BaseApplication::BaseApplication(int argc, char* argv[]
     , argc_(argc)
     , argv_(argv)
     , started_(false)
+    , config_files_(0)
 {
     event_dispatcher_ = event_dispatcher;
     db_manager_ = db_manager;
     scripting_manager_ = scripting_manager;
     server_directory_ = server_directory;
 
-    init_();
-    loadOptions_(argc, argv);
+    registerEventTypes_();
 }
 BaseApplication::BaseApplication(list<string> config_files
 , shared_ptr<IEventDispatcher> event_dispatcher
@@ -94,25 +94,23 @@ BaseApplication::BaseApplication(list<string> config_files
     , argc_(0)
     , argv_(nullptr)
     , started_(false)
+    , config_files_(config_files)
 {
     event_dispatcher_ = event_dispatcher;
     db_manager_ = db_manager;
     scripting_manager_ = scripting_manager;
     server_directory_ = server_directory;
 
-    init_();
-    loadOptions_(config_files);
+    registerEventTypes_();
 }
 
 
 BaseApplication::~BaseApplication() {}
 
-void BaseApplication::init_() {
-    registerEventTypes_();
-    addDefaultOptions_();
-}
-
 void BaseApplication::startup() {
+    addDefaultOptions_();
+    // load the options
+    loadOptions_(argc_, argv_, config_files_);
     // get a server_directory
     try {
         if (db_manager_ == nullptr) {
@@ -202,49 +200,7 @@ void BaseApplication::addDefaultOptions_() {
         /*("network.bind_address", boost::program_options::value<string>()->default_value("localhost"), "Address to listen for incoming messages on")
         ("network.bind_port", boost::program_options::value<uint16_t>(), "Port to listen for incoming messages on")*/
     ;
-}
-
-void BaseApplication::loadOptions_(uint32_t argc, char* argv[]) {
-    boost::program_options::store(boost::program_options::parse_command_line(argc, argv, configuration_options_description_), configuration_variables_map_);
-    boost::program_options::notify(configuration_variables_map_);
-
-    // The help argument has been flagged, display the
-    // server options and throw a runtime_error exception
-    // to stop server startup.
-    if(configuration_variables_map_.count("help")) {
-        cout << configuration_options_description_ << endl;
-        throw runtime_error("Help option flagged.");
-    }
-}
-
-void BaseApplication::loadOptions_(list<string> config_files) {
-
-    // Iterate through the configuration files
-    // that are to be loaded. If a configuration file
-    // is missing, throw a runtime_error.
-    for_each(config_files.begin(), config_files.end(), [=] (const string& filename) {
-        ifstream config_file(filename);
-        if(!config_file)
-            throw runtime_error("Could not open configuration file. " + filename);
-        else
-        {
-            try {
-                boost::program_options::store(boost::program_options::parse_config_file(config_file, configuration_options_description_, true), configuration_variables_map_);
-            } catch(...) { 
-                throw runtime_error("Could not parse config file. " + filename);
-            }
-        }
-    });
-
-    boost::program_options::notify(configuration_variables_map_);
-
-    // The help argument has been flagged, display the
-    // server options and throw a runtime_error exception
-    // to stop server startup.
-    if(configuration_variables_map_.count("help")) {
-        cout << configuration_options_description_ << endl;
-        throw runtime_error("Help option flagged.");
-    }
+    onAddDefaultOptions_();
 }
 
 void BaseApplication::loadOptions_(uint32_t argc, char* argv[], list<string> config_files)
@@ -261,7 +217,7 @@ void BaseApplication::loadOptions_(uint32_t argc, char* argv[], list<string> con
         else
         {
             try {
-                boost::program_options::store(boost::program_options::parse_config_file(config_file, configuration_options_description_, true), configuration_variables_map_);
+                 boost::program_options::store(boost::program_options::parse_config_file(config_file, configuration_options_description_, true), configuration_variables_map_);
             } catch(...) { 
                 throw runtime_error("Could not parse config file. " + filename);
             }
@@ -289,20 +245,26 @@ bool BaseApplication::addDataSourcesFromOptions_()
     }
 
     try {
-        // register the galaxy
-        db_manager_->registerStorageType(
-        configuration_variables_map_["galaxy.datastore.name"].as<string>(),
-        configuration_variables_map_["galaxy.datastore.schema"].as<string>(),
-        configuration_variables_map_["galaxy.datastore.host"].as<string>(),
-        configuration_variables_map_["galaxy.datastore.username"].as<string>(),
-        configuration_variables_map_["galaxy.datastore.password"].as<string>());
-        // register the cluster first
-        db_manager_->registerStorageType(
-        configuration_variables_map_["cluster.datastore.name"].as<string>(),
-        configuration_variables_map_["cluster.datastore.schema"].as<string>(),
-        configuration_variables_map_["cluster.datastore.host"].as<string>(),
-        configuration_variables_map_["cluster.datastore.username"].as<string>(),
-        configuration_variables_map_["cluster.datastore.password"].as<string>());
+        // make sure the value is in the map before registering
+        if (configuration_variables_map_.count("galaxy.datastore.name") > 0) {
+            // register the galaxy
+            db_manager_->registerStorageType(
+            configuration_variables_map_["galaxy.datastore.name"].as<string>(),
+            configuration_variables_map_["galaxy.datastore.schema"].as<string>(),
+            configuration_variables_map_["galaxy.datastore.host"].as<string>(),
+            configuration_variables_map_["galaxy.datastore.username"].as<string>(),
+            configuration_variables_map_["galaxy.datastore.password"].as<string>());
+        }
+        // make sure the value is in the map before registering
+        if (configuration_variables_map_.count("cluster.datastore.name") > 0) {
+            // register the cluster
+            db_manager_->registerStorageType(
+            configuration_variables_map_["cluster.datastore.name"].as<string>(),
+            configuration_variables_map_["cluster.datastore.schema"].as<string>(),
+            configuration_variables_map_["cluster.datastore.host"].as<string>(),
+            configuration_variables_map_["cluster.datastore.username"].as<string>(),
+            configuration_variables_map_["cluster.datastore.password"].as<string>());
+        }
 
     } catch(...) {
         throw runtime_error( "No exceptions should be thrown during a registration with valid information");
@@ -315,14 +277,17 @@ void BaseApplication::registerApp_()
 {
     if (server_directory_ != nullptr)
     {
-        server_directory_->registerProcess(
-            configuration_variables_map_["cluster.name"].as<string>(),
-            configuration_variables_map_["cluster.process_type"].as<string>(),
-            configuration_variables_map_["cluster.version"].as<string>(),
-            configuration_variables_map_["cluster.address"].as<string>(),
-            configuration_variables_map_["cluster.tcp_port"].as<uint16_t>(),
-            configuration_variables_map_["cluster.udp_port"].as<uint16_t>(),
-            configuration_variables_map_["cluster.ping_port"].as<uint16_t>()
-            );
+        // make sure the value is in the map before registering
+        if (configuration_variables_map_.count("cluster.name") > 0) {
+            server_directory_->registerProcess(
+                configuration_variables_map_["cluster.name"].as<string>(),
+                configuration_variables_map_["cluster.process_type"].as<string>(),
+                configuration_variables_map_["cluster.version"].as<string>(),
+                configuration_variables_map_["cluster.address"].as<string>(),
+                configuration_variables_map_["cluster.tcp_port"].as<uint16_t>(),
+                configuration_variables_map_["cluster.udp_port"].as<uint16_t>(),
+                configuration_variables_map_["cluster.ping_port"].as<uint16_t>()
+                );
+        }
     }
 }

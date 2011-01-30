@@ -128,30 +128,19 @@ protected:
     *   
     */
     void addDefaultOptions_();
-
+    /**
+    *   Allows children to add more configuration options after defaults
+    *
+    */
+    virtual void onAddDefaultOptions_() = 0;
     /**
     *   Uses loaded cluster information to register the application with the server directory
     *
     */
     void registerApp_();
-
-    /**
-     * Loads configuration options using the configuration options description from
-     * the command-line only.
-     *
-     * \param argc The number of arugments.
-     * \param argv The arguments pulled from the command-line.
-     */
-    void loadOptions_(uint32_t argc, char* argv[]);
-
-    /**
-     * Loads configuration options using the configuration options description from
-     * a list of configuration files only.
-     *
-     * \param config_files The files to load the options from.
-     */
-    void loadOptions_(std::list<std::string> config_files);
-
+    /// allows children to add more data sources, after defaults have been added
+    virtual void onRegisterApp_() = 0;
+    
     /**
      * Loads configuration options using the configuration options description from
      * the command-line and configuration files.
@@ -177,6 +166,7 @@ protected:
     int argc_;
     char** argv_;
     bool started_;
+    std::list<std::string> config_files_;
 };
 
 }  // namespace anh

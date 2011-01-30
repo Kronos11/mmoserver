@@ -64,6 +64,8 @@ public:
      */
 
     virtual bool hasStarted() const { return started_; }
+    virtual void onAddDefaultOptions_() { }
+    virtual void onRegisterApp_(){ }
 
     /*! \returns Returns the bytes received since the Ping Server was started */
     uint64 BytesReceived() const;
