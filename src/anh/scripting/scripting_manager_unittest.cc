@@ -17,11 +17,13 @@
  along with MMOServer.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "scripting_manager.h"
+#include <boost/python.hpp>
 #include <gtest/gtest.h>
 #include <iostream>
 #include <cstdint>
 
 using namespace anh::scripting;
+using namespace boost::python;
 namespace {
 class ScriptEngineTest : public ::testing::Test 
 {
@@ -104,6 +106,49 @@ TEST_F(ScriptEngineTest, getPythonException)
     e->load("noscript.py");
     std::string err_msg ("No such file or directory");
     EXPECT_TRUE(e->getErrorMessage().find(err_msg) != std::string::npos);
+}
+
+// An abstract base class
+class Base : public boost::noncopyable
+{
+public:
+  virtual ~Base() {};
+  virtual std::string hello() = 0;
+};
+
+// C++ derived class
+class CppDerived : public Base
+{
+public:
+  virtual ~CppDerived() {}
+  virtual std::string hello() { return "Hello from C++!";}
+};
+
+// Familiar Boost.Python wrapper class for Base
+struct BaseWrap : Base, wrapper<Base>
+{
+  virtual std::string hello() 
+  {
+    return this->get_override("hello")().as<std::string>();
+  }
+};
+
+// Pack the Base class wrapper into a module
+BOOST_PYTHON_MODULE(embedded_hello)
+{
+    class_<BaseWrap, boost::noncopyable> base("Base");
+}
+TEST_F(ScriptEngineTest, getValueFromPython)
+{
+    _inittab module;
+    module.name = "embedded_hello";
+    module.initfunc = PyInit_embedded_hello;
+    CppDerived cpp;
+    EXPECT_EQ("Hello from C++!", cpp.hello());
+    object obj (e->embed("embedded_hello.py", "PythonDerived", module));
+    object py_base = obj();
+    Base& py = extract<Base&>(py_base) BOOST_EXTRACT_WORKAROUND;
+    EXPECT_EQ("Hello from Python!", py.hello());
 }
 //TEST_F(ScriptEngineTest, loadTestModule){
 //    e->loadFile("module.py");

@@ -17,10 +17,11 @@
  along with MMOServer.  If not, see <http://www.gnu.org/licenses/>.
 */
 #include "scripting_manager.h"
-#include <boost/python.hpp>
 #include <iostream>
 #include <fstream>
-#include "../event_dispatcher/event_dispatcher.h"
+#include <boost/python.hpp>
+#include <anh/event_dispatcher/event_dispatcher.h>
+
 
 using namespace std;
 using namespace anh::scripting;
@@ -40,11 +41,10 @@ void ScriptingManager::load(const string& filename)
 {
     
     try{              
-        string input_str(&getFileInput_(filename)[0]);
-        if (input_str.length() > 0)
+        vector<string> input_vect(getFileInput_(filename));
+        if (input_vect.size() > 0)
         {
-            auto file_str = make_shared<str>(input_str);
-            loaded_files_.insert(make_pair(string(fullPath_(filename)), file_str));
+            loaded_files_.insert(make_pair(string(fullPath_(filename)), input_vect));
         }
     }
     catch(...)
@@ -59,14 +59,17 @@ void ScriptingManager::run(const string& filename)
     if (!isFileLoaded(filename))
         load(filename);
     
-    str loaded_file = getLoadedFile(filename);
+    vector<string> loaded_file = getLoadedFile(filename);
     try
     {
         // Retrieve the main module
         object main = import("__main__");
         // Retrieve the main module's namespace
         object global(main.attr("__dict__"));
-        exec(loaded_file, global, global);
+        PyObject* return_obj;
+        for_each(loaded_file.begin(), loaded_file.end(), [&] (string line) {
+            exec(line.c_str(), global, global);
+        });
     }
     catch(...)
     {
@@ -98,7 +101,7 @@ void ScriptingManager::removeFile(const string& filename)
 }
 bool ScriptingManager::isFileLoaded(const string& filename)
 {
-    auto it = find_if(loaded_files_.begin(), loaded_files_.end(), [this,&filename](bp_object_map::value_type& file){
+    auto it = find_if(loaded_files_.begin(), loaded_files_.end(), [this,&filename](bp_files_map::value_type& file){
         return file.first == fullPath_(filename);
     });
     return it != loaded_files_.end();
@@ -113,15 +116,15 @@ void ScriptingManager::setFullPath_(const string& filename, const string& root_p
     full_path_.append(root_path);
     full_path_.append(filename);
 }
-str ScriptingManager::getLoadedFile(const string& filename)
+vector<string> ScriptingManager::getLoadedFile(const string& filename)
 {
-    auto it = find_if(loaded_files_.begin(), loaded_files_.end(), [&](bp_object_map::value_type& file){
+    auto it = find_if(loaded_files_.begin(), loaded_files_.end(), [&](bp_files_map::value_type& file){
         return file.first == fullPath_(filename);
     });
     if (it != loaded_files_.end())
-        return *it->second;
+        return (*it).second;
     else 
-        return str();
+        return vector<string>();
 }
 char* ScriptingManager::fullPath_(const string& filename)
 {
@@ -129,23 +132,23 @@ char* ScriptingManager::fullPath_(const string& filename)
     return const_cast<char*>(full_path_.c_str());
 }
 
-vector<char> ScriptingManager::getFileInput_(const string& filename)
+vector<string> ScriptingManager::getFileInput_(const string& filename)
 {
-    vector<char> input;
+    vector<string> input;
     ifstream file(fullPath_(filename), ios::in | ios::binary);
     if (!file.is_open())
     {
         // set our error message here
         setCantFindFileError_();
-        input.push_back('\0');
         return input;
     }
 
-    file >> noskipws;
-    copy(istream_iterator<char>(file), istream_iterator<char>(), back_inserter(input));
-    input.push_back('\n');
-    input.push_back('\0');
-    
+    string line;
+    while(getline(file, line))
+    {
+        if (line.size() > 1)
+            input.push_back(line + " \n");
+    }
     return input;
 }
 void ScriptingManager::getExceptionFromPy_()
@@ -206,4 +209,28 @@ string ScriptingManager::getErrorMessage()
     {
         return "Undefined Error";
     }
+}
+object ScriptingManager::embed(const string& filename, const string& class_name, _inittab init_obj) {
+    // are you trying to run a file that's not loaded?
+    // lets load the file and run it anyway
+    if (!isFileLoaded(filename))
+        load(filename);
+    
+    try
+    {
+        // Retrieve the main module
+        object main = import("__main__");
+        // Retrieve the main module's namespace
+        object global(main.attr("__dict__"));
+        if (PyImport_AppendInittab(init_obj.name, init_obj.initfunc) != -1) {
+            run(filename);
+            object class_embed = global[class_name];
+            return class_embed; 
+        }
+    }
+    catch(...)
+    {
+        getExceptionFromPy_();
+    }
+    return object();
 }
