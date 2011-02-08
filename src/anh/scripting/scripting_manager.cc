@@ -41,10 +41,11 @@ void ScriptingManager::load(const string& filename)
 {
     
     try{              
-        vector<string> input_vect(getFileInput_(filename));
-        if (input_vect.size() > 0)
+        string input_str(&getFileInput_(filename)[0]);
+        if (input_str.length() > 0)
         {
-            loaded_files_.insert(make_pair(string(fullPath_(filename)), input_vect));
+            auto file_str = make_shared<str>(input_str);
+            loaded_files_.insert(make_pair(string(fullPath_(filename)), file_str));
         }
     }
     catch(...)
@@ -59,17 +60,15 @@ void ScriptingManager::run(const string& filename)
     if (!isFileLoaded(filename))
         load(filename);
     
-    vector<string> loaded_file = getLoadedFile(filename);
+    str loaded_file = getLoadedFile(filename);
+    string str_file = extract<string>(loaded_file);
     try
     {
         // Retrieve the main module
         object main = import("__main__");
         // Retrieve the main module's namespace
         object global(main.attr("__dict__"));
-        PyObject* return_obj;
-        for_each(loaded_file.begin(), loaded_file.end(), [&] (string line) {
-            exec(line.c_str(), global, global);
-        });
+        exec(loaded_file, global, global);
     }
     catch(...)
     {
@@ -101,7 +100,7 @@ void ScriptingManager::removeFile(const string& filename)
 }
 bool ScriptingManager::isFileLoaded(const string& filename)
 {
-    auto it = find_if(loaded_files_.begin(), loaded_files_.end(), [this,&filename](bp_files_map::value_type& file){
+    auto it = find_if(loaded_files_.begin(), loaded_files_.end(), [this,&filename](bp_object_map::value_type& file){
         return file.first == fullPath_(filename);
     });
     return it != loaded_files_.end();
@@ -116,15 +115,15 @@ void ScriptingManager::setFullPath_(const string& filename, const string& root_p
     full_path_.append(root_path);
     full_path_.append(filename);
 }
-vector<string> ScriptingManager::getLoadedFile(const string& filename)
+str ScriptingManager::getLoadedFile(const string& filename)
 {
-    auto it = find_if(loaded_files_.begin(), loaded_files_.end(), [&](bp_files_map::value_type& file){
+    auto it = find_if(loaded_files_.begin(), loaded_files_.end(), [&](bp_object_map::value_type& file){
         return file.first == fullPath_(filename);
     });
     if (it != loaded_files_.end())
-        return (*it).second;
+        return *it->second;
     else 
-        return vector<string>();
+        return str();
 }
 char* ScriptingManager::fullPath_(const string& filename)
 {
@@ -132,23 +131,22 @@ char* ScriptingManager::fullPath_(const string& filename)
     return const_cast<char*>(full_path_.c_str());
 }
 
-vector<string> ScriptingManager::getFileInput_(const string& filename)
+vector<char> ScriptingManager::getFileInput_(const string& filename)
 {
-    vector<string> input;
-    ifstream file(fullPath_(filename), ios::in | ios::binary);
+    vector<char> input;
+    ifstream file(fullPath_(filename), ios::in);
     if (!file.is_open())
     {
         // set our error message here
         setCantFindFileError_();
+        input.push_back('\0');
         return input;
     }
-
-    string line;
-    while(getline(file, line))
-    {
-        if (line.size() > 1)
-            input.push_back(line + " \n");
-    }
+    file >> noskipws;
+    copy(istream_iterator<char>(file), istream_iterator<char>(), back_inserter(input));
+    input.push_back('\n');
+    input.push_back('\0');
+    
     return input;
 }
 void ScriptingManager::getExceptionFromPy_()
@@ -216,6 +214,8 @@ object ScriptingManager::embed(const string& filename, const string& class_name,
     if (!isFileLoaded(filename))
         load(filename);
     
+    str loaded_file = getLoadedFile(filename);
+    string filestr = extract<string>(loaded_file);
     try
     {
         // Retrieve the main module
@@ -223,7 +223,7 @@ object ScriptingManager::embed(const string& filename, const string& class_name,
         // Retrieve the main module's namespace
         object global(main.attr("__dict__"));
         if (PyImport_AppendInittab(init_obj.name, init_obj.initfunc) != -1) {
-            run(filename);
+            object result = exec(loaded_file, global, global);
             object class_embed = global[class_name];
             return class_embed; 
         }

@@ -35,7 +35,6 @@ class ScriptingManager : public ScriptingManagerInterface
 {
 public:
     typedef std::map<std::string, std::shared_ptr<boost::python::str>> bp_object_map;
-    typedef std::map<std::string, std::vector<std::string>> bp_files_map;
     /**
     * \brief creates ScriptingManager with the base path specified
     *
@@ -81,7 +80,7 @@ public:
     *   for immediate execution.
     *
     */
-    bp_files_map getLoadedFiles() { return loaded_files_; }
+    bp_object_map getLoadedFiles() { return loaded_files_; }
 
     /**
     * \brief checks to see if the filename has been loaded
@@ -95,15 +94,29 @@ public:
     *  
     * \param filepath sets the path_ behind the scenes
     */
-    std::vector<std::string> getLoadedFile(const std::string& filename);
+    boost::python::str getLoadedFile(const std::string& filename);
     /**
     * \brief gets data from PYEXCEPTION struct and 
     *       creates a friendly message
     *  
     */
     std::string getErrorMessage();
-
+    /**
+    * \brief loads a python file, loads a C++ module into memory and executes the file
+    *
+    * \param filename the file to execute
+    * \param class_name the class to extract from python for use in C++
+    * \param init_obj the _inittab which has a function pointer to the module to be loaded
+    * \returns boost::python::api::object the object containing the Python class for use in C++
+    */
     boost::python::api::object embed(const std::string& filename,const std::string& class_name, _inittab init_obj);
+
+    /**
+    * \brief sets the PYEXCEPTION struct based on internal python values
+    *
+    * \effect struct is filled out
+    */
+    void getExceptionFromPy_();
 private:
     // hide default ctor
     ScriptingManager();
@@ -116,13 +129,8 @@ private:
     */
     void setCantFindFileError_();
 
-    std::vector<std::string> getFileInput_(const std::string& filename);
-    /**
-    * \brief sets the PYEXCEPTION struct based on internal python values
-    *
-    * \effect struct is filled out
-    */
-    void getExceptionFromPy_();
+    std::vector<char> getFileInput_(const std::string& filename);
+
     // base path set by the default ctor
     std::string base_path_;
     /**
@@ -142,7 +150,7 @@ private:
     * \brief a std::map containing the name and boost python object
     *   of all loaded files
     */
-    bp_files_map loaded_files_; 
+    bp_object_map loaded_files_; 
 
     /**
     * \brief struct containing last available python exception

@@ -128,7 +128,7 @@ public:
 //================================================================
 // Radial Component
 //================================================================
-class RadialComponentInterface : public BaseComponent
+class RadialComponentInterface : public ComponentInterface
 {
 
 };

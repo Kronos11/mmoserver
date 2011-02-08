@@ -18,12 +18,27 @@
 */
 #include "scripting_manager.h"
 #include <boost/python.hpp>
+#include <anh/scripting/scripting_modules_unittest.h>
 #include <gtest/gtest.h>
 #include <iostream>
 #include <cstdint>
 
 using namespace anh::scripting;
+using namespace anh::component;
 using namespace boost::python;
+
+// this is used for embedding, so we can have our bindings in another file
+void baseDerive();
+void componentDerive();
+BOOST_PYTHON_MODULE(embedded_hello)
+{
+    baseDerive();
+}
+BOOST_PYTHON_MODULE(embedded_component)
+{
+    anh::component::componentDerive();
+}
+
 namespace {
 class ScriptEngineTest : public ::testing::Test 
 {
@@ -108,36 +123,6 @@ TEST_F(ScriptEngineTest, getPythonException)
     EXPECT_TRUE(e->getErrorMessage().find(err_msg) != std::string::npos);
 }
 
-// An abstract base class
-class Base : public boost::noncopyable
-{
-public:
-  virtual ~Base() {};
-  virtual std::string hello() = 0;
-};
-
-// C++ derived class
-class CppDerived : public Base
-{
-public:
-  virtual ~CppDerived() {}
-  virtual std::string hello() { return "Hello from C++!";}
-};
-
-// Familiar Boost.Python wrapper class for Base
-struct BaseWrap : Base, wrapper<Base>
-{
-  virtual std::string hello() 
-  {
-    return this->get_override("hello")().as<std::string>();
-  }
-};
-
-// Pack the Base class wrapper into a module
-BOOST_PYTHON_MODULE(embedded_hello)
-{
-    class_<BaseWrap, boost::noncopyable> base("Base");
-}
 TEST_F(ScriptEngineTest, getValueFromPython)
 {
     _inittab module;
@@ -150,9 +135,71 @@ TEST_F(ScriptEngineTest, getValueFromPython)
     Base& py = extract<Base&>(py_base) BOOST_EXTRACT_WORKAROUND;
     EXPECT_EQ("Hello from Python!", py.hello());
 }
-//TEST_F(ScriptEngineTest, loadTestModule){
-//    e->loadFile("module.py");
-//    e->runLoadedFile("module.py");
-//    EXPECT_TRUE(e->isFileLoaded("module.py"));
-//}
+
+TEST_F(ScriptEngineTest, getComponentFromPython)
+{
+    _inittab module;
+    module.name = "embedded_component";
+    module.initfunc = PyInit_embedded_component;
+
+    object obj (e->embed("embedded_component.py", "DerivedComponent", module));
+    object py_base = obj();
+    try {
+        ComponentInterface& comp = extract<ComponentInterface&>(py_base);
+        ObjectId id = comp.object_id();
+        EXPECT_EQ(0xDEADBEEF, id);
+    }
+    catch(...)
+    {
+        e->getExceptionFromPy_();
+        std::string err = e->getErrorMessage();
+    }
 }
+
+TEST_F(ScriptEngineTest, getRadialComponentFromPython)
+{
+    _inittab module;
+    module.name = "embedded_component";
+    module.initfunc = PyInit_embedded_component;
+
+    object obj (e->embed("radial_component.py", "RadialComponent", module));
+    object py_base = obj();
+    try {
+        ComponentInterface& comp = extract<ComponentInterface&>(py_base);
+
+        ObjectId id = comp.object_id();
+        EXPECT_EQ(0xDEADBEEF, id);
+    }
+    catch(...)
+    {
+        e->getExceptionFromPy_();
+        std::string err = e->getErrorMessage();
+    }
+}
+
+TEST_F(ScriptEngineTest, getHAMComponentFromPython)
+{
+    _inittab module;
+    module.name = "embedded_component";
+    module.initfunc = PyInit_embedded_component;
+
+    object obj (e->embed("ham_component.py", "HamComponent", module));
+    object py_base = obj();
+    try {
+        HAMComponentInterface& comp = extract<HAMComponentInterface&>(py_base);
+        boost::property_tree::ptree pt;
+        
+        comp.Init(pt);
+        comp.Update(15.0);
+        
+        ObjectId id = comp.object_id();
+        EXPECT_EQ(0xDEADBEEF, id);
+    }
+    catch(...)
+    {
+        e->getExceptionFromPy_();
+        std::string err = e->getErrorMessage();
+    }
+}
+
+} // anon namespace
