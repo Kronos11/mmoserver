@@ -23,6 +23,7 @@
 #include <anh/component/test_components_unittest.h>
 
 using namespace anh::component;
+using namespace anh::test_components;
 
 #define TEST_OBJECT_ID 0xDEADBABE
 

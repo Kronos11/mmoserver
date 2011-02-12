@@ -19,6 +19,8 @@
 
 #include <anh/component/test_components_unittest.h>
 
+namespace anh { namespace test_components {
+
 ComponentInfo NullTransformComponent::component_info_ = ComponentInfo(ComponentType("NullTransformComponent"), false);
 std::shared_ptr<NullTransformComponent> TransformComponentInterface::NullComponent = std::shared_ptr<NullTransformComponent>(new NullTransformComponent());
 ComponentInfo TransformComponent::component_info_ = ComponentInfo(ComponentType("TransformComponent"), false);
@@ -34,3 +36,4 @@ ComponentInfo TickableComponent::s_component_info_ = ComponentInfo(ComponentType
 std::shared_ptr<NullHAMComponent> HAMComponentInterface::NullComponent = std::shared_ptr<NullHAMComponent>( new NullHAMComponent() );
 ComponentInfo NullHAMComponent::component_info_ = ComponentInfo(ComponentType("NullHAMComponent"));
 ComponentInfo HAMComponent::component_info_ = ComponentInfo(ComponentType("HAMComponent"));
+}} // namespaces

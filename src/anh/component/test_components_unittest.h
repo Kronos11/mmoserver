@@ -25,7 +25,7 @@
 
 using namespace anh::component;
 
-
+namespace anh { namespace test_components {
 //================================================================
 // Transform Component
 //================================================================
@@ -128,9 +128,11 @@ public:
 //================================================================
 // Radial Component
 //================================================================
-class RadialComponentInterface : public ComponentInterface
+class RadialComponentInterface : public BaseComponent
 {
-
+public:
+    RadialComponentInterface(const ObjectId& id)
+	: BaseComponent(id) { }
 };
 
 class NullRadialComponent : public RadialComponentInterface
@@ -301,6 +303,8 @@ private:
 
 struct HAM
 {
+public:
+    HAM() { health, max_health, action, max_action, mind, max_mind = 0; }
 	unsigned int health;
 	unsigned int max_health;
 	unsigned int action;
@@ -316,10 +320,21 @@ class HAMComponentInterface : public BaseComponent
 public:
 	HAMComponentInterface(const ObjectId& id)
 		: BaseComponent(id) { }
+    /*void Init(boost::property_tree::ptree pt)
+	{
+		ham_.max_health = pt.get<unsigned int>("health", 1);
+		ham_.health = pt.get<unsigned int>("health", 1);
+		ham_.max_action = pt.get<unsigned int>("action", 1);
+		ham_.action = pt.get<unsigned int>("action", 1);
+		ham_.max_mind = pt.get<unsigned int>("mind", 1);
+		ham_.mind = pt.get<unsigned int>("mind", 1);
+	}*/
 
-	virtual HAM& ham() = 0;
+    virtual HAM& ham() { return ham_; }
 
 	static std::shared_ptr<NullHAMComponent> NullComponent;
+private:
+    HAM ham_;
 };
 
 class NullHAMComponent : public HAMComponentInterface
@@ -389,5 +404,7 @@ private:
 		return true;
 	}
 };
+
+}} // namespaces
 
 #endif // LIBANH_COMPONENT_TEST_COMPONENTS_H_

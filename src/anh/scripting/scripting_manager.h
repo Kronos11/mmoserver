@@ -20,10 +20,11 @@
 #define _ANH_SCRIPTING_MANAGER_H_
 
 #include "scripting_manager_interface.h"
+#include <boost/python/object_core.hpp>
 
 //forward declaration
 struct _inittab;
-namespace boost { namespace python {class str; namespace api{class object;} } }
+namespace boost { namespace python {class str; namespace api { class object; } } }
 namespace anh{
 namespace scripting{
 
@@ -100,7 +101,7 @@ public:
     *       creates a friendly message
     *  
     */
-    std::string getErrorMessage();
+    
     /**
     * \brief loads a python file, loads a C++ module into memory and executes the file
     *
@@ -109,14 +110,23 @@ public:
     * \param init_obj the _inittab which has a function pointer to the module to be loaded
     * \returns boost::python::api::object the object containing the Python class for use in C++
     */
-    boost::python::api::object embed(const std::string& filename,const std::string& class_name, _inittab init_obj);
+    boost::python::api::object embed(const std::string& filename,const std::string& return_name);
 
     /**
-    * \brief sets the PYEXCEPTION struct based on internal python values
+    * \brief loads modules from a vector of _inittab
+    *
+    * \returns true if load was successful
+    */
+    bool loadModules(std::vector<_inittab> modules);
+    /**
+    * \brief throws a c++ exception based off information from python
     *
     * \effect struct is filled out
     */
-    void getExceptionFromPy_();
+    void getExceptionFromPy();
+
+    boost::python::api::object& main() { return main_; }
+    boost::python::api::object& global() { return global_; }
 private:
     // hide default ctor
     ScriptingManager();
@@ -127,7 +137,7 @@ private:
     * \brief helper method to set a 
     *   simple file not found message
     */
-    void setCantFindFileError_();
+    //void setCantFindFileError_();
 
     std::vector<char> getFileInput_(const std::string& filename);
 
@@ -152,16 +162,9 @@ private:
     */
     bp_object_map loaded_files_; 
 
-    /**
-    * \brief struct containing last available python exception
-    */
-    struct PYEXCEPTION
-    {
-        std::string err_msg;
-        std::string line_num;
-        std::string file_name;
-        std::string func_name;
-    } py_exception;
+    boost::python::api::object global_;
+    boost::python::api::object main_;
+    
 };
 } // namespace scripting
 } // namespace anh

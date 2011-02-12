@@ -26,6 +26,7 @@
 using namespace std;
 using namespace boost::filesystem;
 using namespace anh::component;
+using namespace anh::test_components;
 
 
 #define TEST_OBJECT_ID 0xDEADBABE

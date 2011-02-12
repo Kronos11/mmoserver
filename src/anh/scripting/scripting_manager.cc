@@ -21,6 +21,7 @@
 #include <fstream>
 #include <boost/python.hpp>
 #include <anh/event_dispatcher/event_dispatcher.h>
+#include <glog/logging.h>
 
 
 using namespace std;
@@ -32,6 +33,10 @@ ScriptingManager::ScriptingManager(const string& base_path)
     base_path_ = base_path;
     // initialize the python ScriptingManager
     Py_Initialize();
+    // Retrieve the main module
+    main_ = import("__main__");
+    // Retrieve the main dictionary 'global' namespace if you will
+    global_ = main_.attr("__dict__");
 }
 ScriptingManager::~ScriptingManager()
 {
@@ -50,7 +55,7 @@ void ScriptingManager::load(const string& filename)
     }
     catch(...)
     {
-        getExceptionFromPy_();
+        getExceptionFromPy();
     }
 }
 void ScriptingManager::run(const string& filename)
@@ -61,19 +66,41 @@ void ScriptingManager::run(const string& filename)
         load(filename);
     
     str loaded_file = getLoadedFile(filename);
-    string str_file = extract<string>(loaded_file);
     try
     {
-        // Retrieve the main module
-        object main = import("__main__");
-        // Retrieve the main module's namespace
-        object global(main.attr("__dict__"));
-        exec(loaded_file, global, global);
+        exec(loaded_file, global_, global_);
     }
     catch(...)
     {
-        getExceptionFromPy_();
+        getExceptionFromPy();
     }
+}
+object ScriptingManager::embed(const string& filename, const string& return_name) {
+    // are you trying to run a file that's not loaded?
+    // lets load the file and run it anyway
+    if (!isFileLoaded(filename))
+        load(filename);
+    
+    str loaded_file = getLoadedFile(filename);
+    object embed;
+    try
+    {
+        exec(loaded_file, global_, global_);
+        embed = main_.attr(return_name.c_str());
+    }
+    catch(...)
+    {
+        getExceptionFromPy();
+    }
+    return embed;
+}
+bool ScriptingManager::loadModules(std::vector<_inittab> modules)
+{
+    int failures = 0;
+    for_each(modules.begin(), modules.end(), [modules, &failures](_inittab module) {
+            failures += (PyImport_AppendInittab(module.name, module.initfunc) != -1);
+        });
+    return failures > 0;
 }
 void ScriptingManager::reload(const string& filename)
 {
@@ -134,11 +161,12 @@ char* ScriptingManager::fullPath_(const string& filename)
 vector<char> ScriptingManager::getFileInput_(const string& filename)
 {
     vector<char> input;
-    ifstream file(fullPath_(filename), ios::in);
+    char* fullfile = fullPath_(filename);
+    ifstream file(fullfile, ios::in);
     if (!file.is_open())
     {
         // set our error message here
-        setCantFindFileError_();
+        cerr << "Can't load file in path: " + string(fullfile) << endl;
         input.push_back('\0');
         return input;
     }
@@ -149,88 +177,52 @@ vector<char> ScriptingManager::getFileInput_(const string& filename)
     
     return input;
 }
-void ScriptingManager::getExceptionFromPy_()
+void ScriptingManager::getExceptionFromPy()
 {
-    PyObject* type, *value, *trace_back;
-    PyErr_Fetch(&type, &value, &trace_back);
-    // normalize to change value from tuple to string
-    PyErr_NormalizeException(&type, &value, &trace_back);
-    //value contains error message
-    //trace_back contains stack snapshot and other information
-    //(see python traceback structure)
-    try
-    {
-        if (trace_back) {
-            handle<> hTraceback(trace_back);
-            object traceback(hTraceback);
+    std::ostringstream os;
+    os << "Python error:\n  " << std::flush;
 
-            //Extract line number (top entry of call stack)
-            // if you want to extract another levels of call stack
-            // also process traceback.attr("tb_next") recurently
-            py_exception.line_num = extract<string> (traceback.attr("tb_lineno"));
-            py_exception.file_name = extract<string>(traceback.attr("tb_frame").attr("f_code").attr("co_filename"));
-            py_exception.func_name = extract<string>(traceback.attr("tb_frame").attr("f_code").attr("co_name"));
+    PyObject *type = 0, *val = 0, *tb = 0;
+    PyErr_Fetch(&type, &val, &tb);
+    handle<> e_val(val), e_type(type), e_tb(allow_null(tb));
+
+    try {
+        object t = extract<object>(e_type.get());
+        object t_name = t.attr("__name__");
+        std::string typestr = extract<std::string>(t_name);
+
+        os << typestr << std::flush;
+    } catch (error_already_set const &) {
+        os << "Internal error getting error type:\n";
+        PyErr_Print();
+    }
+
+    os << ": ";
+
+    try {
+        object v = extract<object>(e_val.get());
+        std::string valuestr = extract<std::string>(v.attr("__str__")());
+        os  << valuestr << std::flush;
+    } catch (error_already_set const &) {
+        os << "Internal error getting value type:\n";
+        PyErr_Print();
+    }
+
+    if (tb) {
+        try {
+            object tb_list = import("traceback").attr("format_tb")(e_tb);
+            object tb_str = str("").attr("join")(tb_list);
+            std::string str = extract<std::string>(tb_str);
+
+            os << "\nTraceback (recent call last):\n" << str;
+        } catch (error_already_set const &) {
+            os << "Internal error getting traceback:\n";
+            PyErr_Print();
         }
-        if (value)
-        {
-            //Extract error message
-            handle<> hVal (PyObject_Str(value));
-            object err_msg(hVal);
-            py_exception.err_msg = extract<string>(err_msg);
-        }
-    } 
-    catch(...)
-    {
-        return;
+    } else {
+        os << std::endl;
     }
-}
-void ScriptingManager::setCantFindFileError_()
-{
-    py_exception.file_name = full_path_;
-    py_exception.err_msg = full_path_ + string(": No such file or directory");
-}
-string ScriptingManager::getErrorMessage()
-{
-    if (py_exception.err_msg.length() > 0)
-    {
-        stringstream ss;
-        ss << "Error: " << py_exception.err_msg;
-        if (py_exception.line_num.length() >0)
-        {
-            ss << " On Line: " << py_exception.line_num;
-            ss << " in file: " << py_exception.file_name;
-            ss << " function: " << py_exception.func_name;
-        }
-        return ss.str();
-    }
-    else
-    {
-        return "Undefined Error";
-    }
-}
-object ScriptingManager::embed(const string& filename, const string& class_name, _inittab init_obj) {
-    // are you trying to run a file that's not loaded?
-    // lets load the file and run it anyway
-    if (!isFileLoaded(filename))
-        load(filename);
-    
-    str loaded_file = getLoadedFile(filename);
-    string filestr = extract<string>(loaded_file);
-    try
-    {
-        // Retrieve the main module
-        object main = import("__main__");
-        // Retrieve the main module's namespace
-        object global(main.attr("__dict__"));
-        if (PyImport_AppendInittab(init_obj.name, init_obj.initfunc) != -1) {
-            object result = exec(loaded_file, global, global);
-            object class_embed = global[class_name];
-            return class_embed; 
-        }
-    }
-    catch(...)
-    {
-        getExceptionFromPy_();
-    }
-    return object();
+    PyErr_Clear();
+    std::cerr << os.str() << endl;
+    //LOG(WARNING) << os.str();
 }
