@@ -3,7 +3,6 @@ option(DISABLE_LEGACY "disables legacy projects" FALSE)
 # libraries
 
 add_subdirectory(anh)
-
 # executables
 
 add_subdirectory(login)

@@ -1,13 +1,22 @@
 include(MMOServerLibrary)
 
 AddMMOServerLibrary(libanh
-    ADDITIONAL_INCLUDE_DIRS
-        ${MYSQL_INCLUDE_DIR}
+    ADDITIONAL_SOURCE_DIRS
+        event_dispatcher
+		component
+		scripting
+	ADDITIONAL_INCLUDE_DIRS
+        ${PYTHON_INCLUDE_DIRS}
+		${MYSQL_INCLUDE_DIR}
         ${MysqlConnectorCpp_INCLUDES}
     DEBUG_LIBRARIES
-        ${MYSQL_LIB}
+		${Boost_PYTHON3_LIBRARY}
+        ${PYTHON_LIBRARIES}
+		${MYSQL_LIB}
         ${MysqlConnectorCpp_LIBRARY_DEBUG}
-    OPTIMIZED_LIBRARIES
-        ${MYSQL_LIB}
+	OPTIMIZED_LIBRARIES
+		${Boost_PYTHON3_LIBRARY}
+        ${PYTHON_LIBRARIES}
+		${MYSQL_LIB}
         ${MysqlConnectorCpp_LIBRARY_RELEASE}
 )

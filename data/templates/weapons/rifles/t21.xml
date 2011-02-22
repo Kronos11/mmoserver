@@ -1,0 +1,13 @@
+<object name="t21">
+  <component type="TransformComponent" />
+  <componnet type="Radial">
+    <radials>
+      <radial parent="0" index="0">Examine</radial>
+      <radial parent="0" index="1">Equip</radial>
+    </radials>
+  </componnet>
+  <component type="Appearance">
+    <iff></iff>
+    <crc></crc>
+  </component>
+</object>

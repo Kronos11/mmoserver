@@ -81,9 +81,8 @@ ELSE()
 ENDIF()
 
 # Use the static/multithreaded libraries.
-SET(Boost_USE_STATIC_LIBS ON)
 SET(Boost_USE_MULTITHREADED ON)
-        
+
 INCLUDE(CheckCXXCompilerFlag)
 
 CHECK_CXX_COMPILER_FLAG(-Wno-invalid-offsetof HAS_NO_INVALID_OFFSETOF)
@@ -137,8 +136,13 @@ IF(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/deps")
     
     SET(ZLIB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/${__deps_dir}/zlib")
 ENDIF()
+FIND_PACKAGE(PythonLibs REQUIRED)
+SET(Boost_USE_STATIC_LIBS ON)
+FIND_PACKAGE(Boost 1.45.0 COMPONENTS serialization date_time regex thread system program_options REQUIRED)
 
-FIND_PACKAGE(Boost 1.44.0 COMPONENTS date_time regex thread system program_options REQUIRED)
+SET(Boost_USE_STATIC_LIBS OFF)
+FIND_PACKAGE(Boost 1.45.0 COMPONENTS python3 REQUIRED)
+
 FIND_PACKAGE(GLM REQUIRED)
 FIND_PACKAGE(GLog REQUIRED)
 FIND_PACKAGE(GTest REQUIRED)
